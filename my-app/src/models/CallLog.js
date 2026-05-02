@@ -25,12 +25,19 @@ const CallLogSchema = new mongoose.Schema(
       index: true,
     },
     callSid: { type: String, default: null },
+
+    // ── Retry Logic ──────────────────────────────────────────────
+    retryCount: { type: Number, default: 0, max: 2 },
+    nextRetryAt: { type: Date, default: null },
+
     // Pre-fetched context snapshot so the webhook doesn't need to re-query DB mid-call
     context: {
       patient: { type: Object, default: null },
       lastTriage: { type: Object, default: null },
       recentBookings: { type: Array, default: [] },
       pastCallSummaries: { type: Array, default: [] },
+      // Last 3 call memories injected for follow-up context
+      pastMemories: { type: Array, default: [] },
     },
     // Pre-generated greeting by Grok before the call fires
     greeting: { type: String, default: null },
@@ -42,6 +49,14 @@ const CallLogSchema = new mongoose.Schema(
       default: "info",
     },
     notes: { type: String, default: "" },
+
+    // ── Post-Call Memory ─────────────────────────────────────────
+    memory: {
+      symptoms: { type: [String], default: [] },
+      mood: { type: String, default: null },
+      followUpTopics: { type: [String], default: [] },
+      rawSummary: { type: String, default: null },
+    },
   },
   { timestamps: true }
 );

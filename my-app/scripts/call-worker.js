@@ -86,17 +86,28 @@ function defineModels() {
       scheduledAt: Date,
       status: { type: String, default: "scheduled", index: true },
       callSid: { type: String, default: null },
+      // ── Retry Logic ──────────────────────────────────────────
+      retryCount: { type: Number, default: 0 },
+      nextRetryAt: { type: Date, default: null },
       context: {
         patient: { type: Object, default: null },
         lastTriage: { type: Object, default: null },
         recentBookings: { type: Array, default: [] },
         pastCallSummaries: { type: Array, default: [] },
+        pastMemories: { type: Array, default: [] },
       },
       greeting: { type: String, default: null },
       transcript: { type: [transcriptEntrySchema], default: [] },
       summary: { type: String, default: null },
       severity: { type: String, default: "info" },
       notes: { type: String, default: "" },
+      // ── Post-Call Memory ─────────────────────────────────────
+      memory: {
+        symptoms: { type: Array, default: [] },
+        mood: { type: String, default: null },
+        followUpTopics: { type: Array, default: [] },
+        rawSummary: { type: String, default: null },
+      },
     },
     { timestamps: true }
   );
@@ -140,7 +151,7 @@ async function callGroq(messages, maxTokens = 80) {
 
 // ─── Context fetcher ──────────────────────────────────────────
 async function fetchPatientContext(patientId) {
-  const [patient, latestTriages, recentBookings, pastCalls] = await Promise.all([
+  const [patient, latestTriages, recentBookings, pastCalls, pastMemoryLogs] = await Promise.all([
     Patient.findById(patientId).lean(),
     Triage.find({ patientId }).sort({ createdAt: -1 }).limit(1).lean(),
     Booking.find({ patientId, status: { $in: ["upcoming", "completed"] } })
@@ -152,6 +163,12 @@ async function fetchPatientContext(patientId) {
       .limit(3)
       .select("summary severity createdAt")
       .lean(),
+    // Pull last 3 calls that have memory extracted
+    CallLog.find({ patientId, status: "completed", "memory.mood": { $ne: null } })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .select("memory createdAt")
+      .lean(),
   ]);
 
   return {
@@ -159,16 +176,19 @@ async function fetchPatientContext(patientId) {
     lastTriage: latestTriages[0] || null,
     recentBookings,
     pastCallSummaries: pastCalls,
+    pastMemories: pastMemoryLogs,
   };
 }
 
 // ─── Greeting generator ───────────────────────────────────────
 async function generateGreeting(context, notes) {
-  const { patient, lastTriage, pastCallSummaries } = context;
+  const { patient, lastTriage, pastCallSummaries, pastMemories } = context;
 
-  const systemPrompt = `You are AmritCare AI about to call a patient for a scheduled health checkup call.
-Generate a warm, personalized greeting in EXACTLY 1-2 short sentences that ends with an open health question.
-Never prescribe medicines. Speak naturally.`;
+  const systemPrompt = `You are AmritCare AI jo ek patient ko scheduled health checkup ke liye call kar raha hai.
+EXACTLY 1-2 short sentences mein ek warm, personalized greeting generate karo jo ek open health question ke saath khatam ho.
+Hinglish mein bolo — Hindi aur English ka natural mix (e.g. "Namaste! Aap ki tabiyat kaisi hai aaj?").
+Agr previous call memories hain, toh pehle se mention kiye symptoms ke baare mein naturally follow-up karo.
+Kabhi bhi medicines prescribe mat karo. Naturally baat karo.`;
 
   let userContent = `Patient: ${patient?.firstName || "there"}, Age: ${patient?.age || "unknown"}, Blood: ${patient?.blood || "unknown"}.`;
 
@@ -177,6 +197,15 @@ Never prescribe medicines. Speak naturally.`;
   }
   if (pastCallSummaries?.length) {
     userContent += ` Last call summary: "${pastCallSummaries[0].summary}".`;
+  }
+  // Inject structured memory from previous calls
+  if (pastMemories?.length) {
+    userContent += `\n\nPrevious call memories (most recent first):`;
+    pastMemories.forEach((m, i) => {
+      const mem = m.memory || {};
+      userContent += `\n- Call ${i + 1}: Symptoms: ${(mem.symptoms || []).join(", ") || "none"}. Mood: ${mem.mood || "unknown"}. Follow up on: ${(mem.followUpTopics || []).join(", ") || "none"}.`;
+    });
+    userContent += `\nWeave the follow-up naturally into the greeting. Don't list them robotically.`;
   }
   if (notes) {
     userContent += ` Patient's notes for this call: "${notes}".`;
@@ -190,11 +219,11 @@ Never prescribe medicines. Speak naturally.`;
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
-      80
+      100
     );
   } catch (e) {
     console.error("Greeting generation failed:", e);
-    return `Hello ${patient?.firstName || "there"}! I'm AmritCare AI calling for your scheduled health checkup. How are you feeling today?`;
+    return `Namaste ${patient?.firstName || "ji"}! Main AmritCare AI bol raha hoon, aapke scheduled health checkup ke liye call kiya hai. Aap ki tabiyat kaisi hai aaj?`;
   }
 }
 
@@ -205,7 +234,7 @@ async function processDueCalls() {
 
   const dueCalls = await CallLog.find({
     status: "scheduled",
-    scheduledAt: { $gte: now, $lte: windowEnd },
+    scheduledAt: { $lte: windowEnd },
   }).lean();
 
   if (dueCalls.length === 0) return;
@@ -253,13 +282,32 @@ async function processDueCalls() {
         statusCallback: statusCallbackUrl,
         statusCallbackMethod: "POST",
         statusCallbackEvent: ["completed", "failed", "no-answer", "busy"],
+        // ── Voicemail detection ──────────────────────────────────
+        machineDetection: "DetectMessageEnd",
+        asyncAmd: "true",
+        asyncAmdStatusCallback: webhookUrl,
+        asyncAmdStatusCallbackMethod: "POST",
       });
 
       await CallLog.findByIdAndUpdate(call._id, { callSid: twilioCall.sid });
       console.log(`  ✓ Call fired: SID ${twilioCall.sid} → ${phoneNumber}`);
     } catch (err) {
       console.error(`  ✗ Failed processing call ${call._id}:`, err.message);
-      await CallLog.findByIdAndUpdate(call._id, { status: "failed" }).catch(() => {});
+      // ── Retry on transient failures ────────────────────────────
+      const freshCall = await CallLog.findById(call._id).lean().catch(() => null);
+      if (freshCall && freshCall.retryCount < 2) {
+        const nextRetryAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+        await CallLog.findByIdAndUpdate(call._id, {
+          status: "scheduled",
+          retryCount: freshCall.retryCount + 1,
+          nextRetryAt,
+          scheduledAt: nextRetryAt,
+        }).catch(() => {});
+        console.log(`  ↩ Retry ${freshCall.retryCount + 1}/2 scheduled at ${nextRetryAt.toLocaleTimeString()}`);
+      } else {
+        await CallLog.findByIdAndUpdate(call._id, { status: "failed" }).catch(() => {});
+        console.log(`  ✗ Max retries reached — marked as failed.`);
+      }
     }
   }
 }
