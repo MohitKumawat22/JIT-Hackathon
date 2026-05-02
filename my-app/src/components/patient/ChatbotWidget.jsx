@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 export default function ChatbotWidget() {
   const [patient, setPatient] = useState(null);
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -91,6 +93,47 @@ export default function ChatbotWidget() {
         bookingSpecialty = bookMatch[1].trim();
         replyText = replyText.replace(bookMatch[0], "").trim();
       }
+
+      // Handle AI actions
+      if (data.actions?.length) {
+        for (const action of data.actions) {
+          // Auto-schedule a call at a specific time
+          if (action.type === "schedule_call_at" && patient?.id) {
+            try {
+              const callRes = await fetch("/api/calls", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  patientId: patient.id,
+                  scheduledAt: new Date(action.datetime).toISOString(),
+                  overridePhone: patient.phone || null,
+                  overrideName: patient.firstName || null,
+                  recurrence: "one-time",
+                  notes: "Scheduled via AI chat assistant",
+                }),
+              });
+              const callData = await callRes.json();
+              if (callRes.ok) {
+                replyText += `\n\n✅ Done! Your call has been scheduled for ${new Date(action.datetime).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}.`;
+              } else {
+                replyText += `\n\n⚠️ Couldn't schedule the call: ${callData.error || "Unknown error"}.`;
+              }
+            } catch {
+              replyText += "\n\n⚠️ There was an error scheduling your call. Please try manually.";
+            }
+          }
+
+          // Navigate to a page
+          if (action.type === "navigate" && action.path) {
+            setTimeout(() => {
+              setIsOpen(false);
+              router.push(action.path);
+            }, 1200); // slight delay so user sees the reply first
+            replyText += `\n\n➡️ Redirecting you there now...`;
+          }
+        }
+      }
+
       const updated = [...newMessages, { role: "bot", text: replyText, bookingSpecialty, rawText: data.reply }];
       setMessages(updated);
       const historyToSave = updated.map((m) => (m.rawText ? { ...m, text: m.rawText } : m));

@@ -2,44 +2,25 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import ChatHistory from "@/models/ChatHistory";
 
-const SYSTEM_PROMPT = `You are AmritCare AI Health Assistant — a caring, knowledgeable medical chatbot.
+const SYSTEM_PROMPT = `You are AmritCare AI — a smart, friendly health assistant embedded in the AmritCare app.
 
-STRICT RULES:
-1. NEVER recommend or prescribe any medicines, drugs, or pharmaceutical products.
-2. ONLY suggest home remedies, lifestyle changes, and natural treatments.
-3. Always explain the possible REASONS and CAUSES behind the symptoms.
-4. Always recommend consulting a specific type of doctor/specialist for proper diagnosis.
-5. Keep responses concise (under 200 words), warm, and easy to understand.
-6. Use bullet points for clarity.
-7. If the user describes an emergency (chest pain, difficulty breathing, severe bleeding), immediately advise them to call emergency services or visit the nearest hospital.
-8. If the patient has shared medical reports, use that data to give more personalized and accurate advice.
-9. Remember and reference previous conversations when relevant to provide continuity of care.
+CORE RULES:
+1. NEVER recommend or prescribe medicines or drugs.
+2. Only suggest home remedies, lifestyle changes, and natural treatments.
+3. Always recommend consulting the right type of specialist when relevant.
+4. If the user describes an emergency (chest pain, difficulty breathing, severe bleeding), immediately advise them to call emergency services.
+5. If the patient has shared medical reports, use that data for personalized advice.
+6. Remember previous conversations for continuity.
 
-ACTION TAGS — You MUST append these tags at the very end of your response when appropriate:
+RESPONSE STYLE — This is critical:
+- For ACTION requests (scheduling, booking, navigating, simple questions): Reply in 1-3 SHORT sentences. Be warm and direct. No bullet points, no "I understand...", no home remedies section.
+- For HEALTH/SYMPTOM questions: Use the structured format below.
+- NEVER apply the health format to non-health messages. Match the tone to the request.
 
-10. BOOK APPOINTMENT: If the user explicitly asks to book an appointment, or agrees to see a doctor, append:
-    [BOOK_APPOINTMENT:Specialty_Name]
-    (replace Specialty_Name with the best matching specialty like Cardiologist, Neurologist, Dermatologist, Pediatrician, Orthopedic, or General Physician)
+STRUCTURED FORMAT (only for health/symptom questions):
+"I understand you're dealing with [symptom].
 
-11. SCHEDULE CALL: If the user asks to schedule a call with a doctor, or wants a follow-up call, or says "call me", append:
-    [SCHEDULE_CALL:reason]
-    (replace reason with a brief reason like "headache follow-up" or "chest pain consultation")
-
-12. ADD TO CALENDAR: After you suggest booking or scheduling, also append:
-    [ADD_CALENDAR:Specialty_Name:reason]
-    so the user can add the event to their calendar.
-
-You can combine multiple tags. For example if a user wants to book AND get a calendar reminder, include both tags.
-
-RESPONSE FORMAT:
-- Start with empathy ("I understand you're feeling...")
-- Explain possible reasons/causes
-- Suggest 2-3 home remedies
-- Recommend which type of doctor to consult
-- End with a caring note
-
-Example response structure:
-"I understand you're dealing with [symptom]. Here are some possible reasons:
+Possible reasons:
 • Reason 1
 • Reason 2
 
@@ -47,9 +28,34 @@ Example response structure:
 • Remedy 1
 • Remedy 2
 
-👨‍⚕️ I'd recommend consulting a [Specialist Type] for proper evaluation.
+👨‍⚕️ I'd recommend consulting a [Specialist] for proper evaluation.
 
-Take care! 💙"`;
+Take care! 💙"
+
+ACTION TAG RULES — Append these tags at the END of your reply ONLY when appropriate:
+
+10. BOOK APPOINTMENT: If the user explicitly asks to book an appointment or agrees to see a doctor, append:
+    [BOOK_APPOINTMENT:Specialty_Name]
+
+11. SCHEDULE CALL — TWO STEP FLOW:
+    Step A — If user wants to schedule a call but has NOT given a date AND time (e.g. "schedule a call", "book a call"), ask briefly:
+      "Sure! What date and time works best for you? 😊"
+      Do NOT emit any tag yet.
+
+    Step B — Once the user provides date AND time, parse and append:
+      [SCHEDULE_CALL_AT:YYYY-MM-DDTHH:MM]
+      Use 2026 as default year. 24h format.
+      Examples: "4am on 3rd May" → [SCHEDULE_CALL_AT:2026-05-03T04:00], "tomorrow 9pm" → [SCHEDULE_CALL_AT:2026-05-04T21:00]
+
+12. NAVIGATE: If the user asks to go to a page, append [NAVIGATE:/path]:
+    - Bookings / Appointments → [NAVIGATE:/patient/dashboard]
+    - History / Past visits → [NAVIGATE:/patient/history]
+    - Triage / AI diagnosis → [NAVIGATE:/patient/triage]
+    - Find hospital / Locate → [NAVIGATE:/patient/locate]
+    - Medicine reminders → [NAVIGATE:/reminders]
+
+13. ADD TO CALENDAR: After suggesting booking/scheduling, append:
+    [ADD_CALENDAR:Specialty_Name:reason]`;
 
 const REMINDER_EXTRACTION_PROMPT = `You are MediAI, a hospital assistant. The user wants to set a medicine reminder.
 
@@ -205,11 +211,25 @@ export async function POST(request) {
       reply = reply.replace(bookMatch[0], "").trim();
     }
 
-    // Parse [SCHEDULE_CALL:reason]
+    // Parse [SCHEDULE_CALL_AT:datetime]
+    const callAtMatch = reply.match(/\[SCHEDULE_CALL_AT:([\d\-T:]+)\]/);
+    if (callAtMatch) {
+      actions.push({ type: "schedule_call_at", datetime: callAtMatch[1].trim() });
+      reply = reply.replace(callAtMatch[0], "").trim();
+    }
+
+    // Parse legacy [SCHEDULE_CALL:reason] (kept for backward compat)
     const callMatch = reply.match(/\[SCHEDULE_CALL:(.*?)\]/);
     if (callMatch) {
       actions.push({ type: "schedule_call", reason: callMatch[1].trim() });
       reply = reply.replace(callMatch[0], "").trim();
+    }
+
+    // Parse [NAVIGATE:/path]
+    const navMatch = reply.match(/\[NAVIGATE:(.*?)\]/);
+    if (navMatch) {
+      actions.push({ type: "navigate", path: navMatch[1].trim() });
+      reply = reply.replace(navMatch[0], "").trim();
     }
 
     // Parse [ADD_CALENDAR:specialty:reason]
