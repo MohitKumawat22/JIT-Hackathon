@@ -17,10 +17,10 @@ export default function DoctorLoginPage() {
       <div className="w-full max-w-md animate-slide-up">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center shadow-lg">
-              <span className="text-white text-lg font-bold">+</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center shadow-lg">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             </div>
-            <span className="text-xl font-bold tracking-tight">Med<span className="text-secondary">Connect</span></span>
+            <span className="text-xl font-bold tracking-tight">Amrit<span className="text-[#10B981]">Care</span> <span className="text-xs font-medium text-[#059669] bg-[#D1FAE5] px-1.5 py-0.5 rounded-md ml-0.5">AI</span></span>
           </div>
           <h1 className="text-2xl font-bold mb-2">Doctor Portal</h1>
           <p className="text-text-muted text-sm">Sign in to your doctor account</p>

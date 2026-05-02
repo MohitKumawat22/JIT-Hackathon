@@ -21,10 +21,10 @@ export default function TriagePage() {
           className="flex items-center gap-2 no-underline"
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow">
-            <span className="text-[#0a0f1a] text-sm font-bold">+</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           </div>
           <span className="text-lg font-bold tracking-tight">
-            Med<span className="text-primary">Connect</span>
+            Amrit<span className="text-[#10B981]">Care</span> <span className="text-xs font-medium text-[#059669] bg-[#D1FAE5] px-1.5 py-0.5 rounded-md ml-0.5">AI</span>
           </span>
         </Link>
         <Link
