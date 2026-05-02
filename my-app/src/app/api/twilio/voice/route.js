@@ -22,19 +22,19 @@ function detectSeverity(transcript) {
   return "info";
 }
 
-// ─── Grok helpers ──────────────────────────────────────────────
-async function callGrok(messages, maxTokens = 80) {
-  const apiKey = process.env.GROK_API_KEY;
-  if (!apiKey) throw new Error("GROK_API_KEY not configured");
+// ─── Groq AI helpers ──────────────────────────────────────────
+async function callGroq(messages, maxTokens = 80) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY not configured");
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "grok-3-mini",
+      model: "llama-3.1-8b-instant",
       messages,
       temperature: 0.7,
       max_tokens: maxTokens,
@@ -43,7 +43,7 @@ async function callGrok(messages, maxTokens = 80) {
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Grok error ${res.status}: ${err}`);
+    throw new Error(`Groq error ${res.status}: ${err}`);
   }
 
   const data = await res.json();
@@ -125,6 +125,7 @@ export async function POST(request) {
     const params = Object.fromEntries(new URLSearchParams(body));
 
     const { CallSid, SpeechResult, CallStatus } = params;
+    console.log(`[Twilio] CallSid=${CallSid} Status=${CallStatus || "voice"} Speech=${SpeechResult ? SpeechResult.substring(0, 50) : "none"}`);
 
     const ngrokUrl = process.env.NGROK_URL || "";
     const webhookUrl = `${ngrokUrl}/api/twilio/voice`;
@@ -133,7 +134,7 @@ export async function POST(request) {
     if (CallStatus === "completed" || CallStatus === "failed" || CallStatus === "no-answer" || CallStatus === "busy") {
       const callLog = await CallLog.findOne({ callSid: CallSid });
       if (callLog && callLog.status === "in-progress") {
-        // Generate summary via Grok
+        // Generate summary via Groq
         let summary = "";
         let severity = "info";
 
@@ -143,7 +144,7 @@ export async function POST(request) {
             .join("\n");
 
           try {
-            summary = await callGrok(
+            summary = await callGroq(
               [
                 {
                   role: "system",
@@ -168,7 +169,10 @@ export async function POST(request) {
         await callLog.save();
       }
 
-      return new Response("", { status: 204 });
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Response/>`,
+        { status: 200, headers: { "Content-Type": "text/xml" } }
+      );
     }
 
     // ── 2. Find the active CallLog by Sid ─────────────────────────
@@ -194,12 +198,12 @@ export async function POST(request) {
     };
     callLog.transcript.push(patientTurn);
 
-    // Build Grok messages
+    // Build Groq messages
     const systemPrompt = buildMidCallSystemPrompt(callLog.context);
-    const grokMessages = [{ role: "system", content: systemPrompt }];
+    const groqMessages = [{ role: "system", content: systemPrompt }];
 
     for (const turn of callLog.transcript) {
-      grokMessages.push({
+      groqMessages.push({
         role: turn.role === "patient" ? "user" : "assistant",
         content: turn.text,
       });
@@ -207,9 +211,9 @@ export async function POST(request) {
 
     let aiReply = "I understand. Please take care and stay hydrated. Is there anything else you'd like to share?";
     try {
-      aiReply = await callGrok(grokMessages, 80);
+      aiReply = await callGroq(groqMessages, 80);
     } catch (e) {
-      console.error("Mid-call Grok error:", e);
+      console.error("Mid-call Groq error:", e);
     }
 
     const asTurn = {
