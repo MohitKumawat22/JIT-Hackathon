@@ -1,173 +1,170 @@
 "use client";
 
-import { useState } from "react";
-import { LayoutDashboard, Users, PenTool, ShieldAlert, Lock, Unlock, CheckCircle2, ChevronRight, FileImage, LogOut } from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
-type Tab = "schedule" | "records" | "blog";
+interface Appointment {
+  _id: string;
+  patientId: { name: string; email: string };
+  patientInfo: {
+    name: string;
+    age: number;
+    phone: string;
+    complaint: string;
+  };
+  slot: {
+    day: string;
+    time: string;
+  };
+  status: "pending" | "confirmed" | "cancelled";
+  createdAt: string;
+}
 
 export default function DoctorDashboard() {
-  const [activeTab, setActiveTab] = useState<Tab>("schedule");
-  const [recordsUnlocked, setRecordsUnlocked] = useState(false);
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const requestPermission = () => {
-    // Simulating blockchain permission request
-    setTimeout(() => setRecordsUnlocked(true), 1500);
+  useEffect(() => {
+    if (status === "unauthenticated" || (session?.user as any)?.role !== "doctor") {
+      router.push("/login");
+      return;
+    }
+    fetchAppointments();
+  }, [status, session]);
+
+  const fetchAppointments = async () => {
+    try {
+      const res = await fetch("/api/appointments/doctor");
+      const data = await res.json();
+      setAppointments(data.appointments || []);
+    } catch (err) {
+      console.error("Failed to fetch appointments:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const markComplete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "confirmed" }),
+      });
+      if (res.ok) {
+        setAppointments((prev) =>
+          prev.map((app) => (app._id === id ? { ...app, status: "confirmed" } : app))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
+  };
+
+  if (status === "loading") return <div className="p-10 text-center">Loading session...</div>;
+
   return (
-    <div className="min-h-screen bg-[#0B0F1A] text-slate-200 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-slate-900/50 border-r border-white/[0.06] flex flex-col">
-        <div className="p-6 border-b border-white/[0.06]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-white font-bold">DR</div>
-            <div>
-              <p className="font-bold text-white">Dr. Rajan</p>
-              <p className="text-xs text-emerald-400 font-medium">Verified • Pro</p>
-            </div>
+    <div className="min-h-screen bg-slate-50 py-12 px-6">
+      <div className="max-w-4xl mx-auto">
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Doctor Dashboard</h1>
+            <p className="text-gray-500 font-medium">Managing your patient appointments</p>
           </div>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <button onClick={() => setActiveTab("schedule")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "schedule" ? "bg-violet-600/10 text-violet-400" : "text-slate-400 hover:bg-white/[0.04]"}`}>
-            <LayoutDashboard className="w-5 h-5" /> Schedule
-          </button>
-          <button onClick={() => setActiveTab("records")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "records" ? "bg-violet-600/10 text-violet-400" : "text-slate-400 hover:bg-white/[0.04]"}`}>
-            <Users className="w-5 h-5" /> Patient Records
-          </button>
-          <button onClick={() => setActiveTab("blog")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "blog" ? "bg-violet-600/10 text-violet-400" : "text-slate-400 hover:bg-white/[0.04]"}`}>
-            <PenTool className="w-5 h-5" /> Write Blog
-          </button>
-          <div className="pt-4 mt-4 border-t border-white/[0.06]">
-            <Link href="/doctor/xray" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-indigo-500/10 hover:text-indigo-400 transition-colors">
-              <FileImage className="w-5 h-5" /> AI X-Ray Tool
-            </Link>
+          <div className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg">
+            Today: {new Date().toLocaleDateString("en-US", { weekday: 'long', month: 'short', day: 'numeric' })}
           </div>
-        </nav>
-        <div className="p-4 border-t border-white/[0.06]">
-          <Link href="/" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors">
-            <LogOut className="w-5 h-5" /> Logout
-          </Link>
-        </div>
-      </aside>
+        </header>
 
-      {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto relative">
-        <div className="max-w-5xl mx-auto">
-          
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">
-              {activeTab === "schedule" && "Today's Appointments"}
-              {activeTab === "records" && "Blockchain Patient Records"}
-              {activeTab === "blog" && "Publish a Health Blog"}
-            </h1>
-            <p className="text-slate-400">
-              {activeTab === "schedule" && "View and manage your upcoming consultations."}
-              {activeTab === "records" && "Securely access Web3 medical histories."}
-              {activeTab === "blog" && "Share your expertise with the community."}
-            </p>
+        {loading ? (
+          <div className="flex justify-center py-20 animate-pulse text-gray-400">Loading appointments...</div>
+        ) : appointments.length === 0 ? (
+          <div className="bg-white rounded-3xl p-16 text-center border-2 border-dashed border-gray-200">
+            <div className="text-5xl mb-4">📅</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">No Appointments</h2>
+            <p className="text-gray-500">You don't have any appointments scheduled for today.</p>
           </div>
-
-          {/* Schedule View */}
-          {activeTab === "schedule" && (
-            <div className="space-y-4">
-              {[
-                { time: "09:00 AM", name: "Rahul Singh", type: "Video Consult", status: "Upcoming" },
-                { time: "10:30 AM", name: "Anjali Gupta", type: "Clinic Visit", status: "Upcoming" },
-                { time: "11:45 AM", name: "Vikram Mehta", type: "AI Triage Follow-up", status: "Delayed" },
-              ].map((apt, i) => (
-                <div key={i} className="bg-slate-900/50 border border-white/[0.08] rounded-2xl p-5 flex items-center justify-between hover:bg-slate-800/50 transition-colors">
+        ) : (
+          <div className="space-y-4">
+            {appointments.map((app) => (
+              <div
+                key={app._id}
+                className={`bg-white rounded-3xl border transition-all overflow-hidden ${
+                  expandedId === app._id ? "border-blue-400 ring-4 ring-blue-500/5 shadow-xl scale-[1.02]" : "border-gray-100 hover:border-gray-200 shadow-sm"
+                }`}
+              >
+                <div
+                  className="p-6 cursor-pointer flex items-center justify-between"
+                  onClick={() => setExpandedId(expandedId === app._id ? null : app._id)}
+                >
                   <div className="flex items-center gap-5">
-                    <div className="text-center px-4 py-2 bg-white/[0.03] rounded-xl border border-white/[0.04]">
-                      <p className="text-xs text-slate-400">Time</p>
-                      <p className="text-sm font-bold text-white">{apt.time}</p>
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl">
+                      👤
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">{apt.name}</h3>
-                      <p className="text-sm text-slate-400">{apt.type}</p>
+                      <h3 className="font-bold text-gray-900 text-lg">{app.patientInfo.name}</h3>
+                      <p className="text-sm font-medium text-gray-500">
+                        {app.slot.day} • <span className="text-blue-600 font-bold">{app.slot.time}</span>
+                      </p>
                     </div>
                   </div>
-                  <button className="bg-violet-600 hover:bg-violet-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-violet-600/20">
-                    Join / View
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest ${
+                        app.status === "confirmed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {app.status}
+                    </span>
+                    <svg
+                      className={`w-5 h-5 text-gray-400 transition-transform ${expandedId === app._id ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
 
-          {/* Records View */}
-          {activeTab === "records" && (
-            <div className="bg-slate-900/50 border border-white/[0.08] rounded-3xl p-8 relative overflow-hidden">
-              {!recordsUnlocked ? (
-                <div className="text-center py-12 relative z-10">
-                  <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl border border-white/[0.05]">
-                    <Lock className="w-10 h-10 text-slate-400" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-white mb-3">Records Encrypted</h3>
-                  <p className="text-slate-400 max-w-md mx-auto mb-8">Patient medical histories are secured on the blockchain. You must request smart-contract permission from the patient to decrypt their data.</p>
-                  <button onClick={requestPermission} className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-lg shadow-emerald-600/20 inline-flex items-center gap-2">
-                    <ShieldAlert className="w-5 h-5" /> Request Access
-                  </button>
-                </div>
-              ) : (
-                <div className="animate-fade-in">
-                  <div className="flex items-center gap-3 mb-8 pb-6 border-b border-white/[0.06]">
-                    <div className="p-3 bg-emerald-500/10 rounded-xl">
-                      <Unlock className="w-6 h-6 text-emerald-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-white">Access Granted</h3>
-                      <p className="text-sm text-emerald-400">Blockchain Decryption Successful</p>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    {/* Mock Record List */}
-                    {["Rahul Singh - Complete Blood Count (2025)", "Anjali Gupta - MRI Scan Report", "Vikram Mehta - Prescriptions History"].map((rec, i) => (
-                      <div key={i} className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.04] rounded-xl hover:bg-white/[0.04] cursor-pointer transition-colors">
-                        <div className="flex items-center gap-3">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-                          <span className="text-slate-200">{rec}</span>
+                {expandedId === app._id && (
+                  <div className="px-6 pb-6 pt-2 bg-blue-50/30 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                    <div className="grid grid-cols-2 gap-8 mb-6">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Patient Details</label>
+                          <p className="text-sm text-gray-700 font-medium">Age: {app.patientInfo.age} | Phone: {app.patientInfo.phone}</p>
                         </div>
-                        <ChevronRight className="w-5 h-5 text-slate-500" />
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Chief Complaint</label>
+                          <div className="bg-white p-3 rounded-xl border border-gray-100 text-sm text-gray-800 leading-relaxed italic shadow-sm">
+                            "{app.patientInfo.complaint}"
+                          </div>
+                        </div>
                       </div>
-                    ))}
+                      <div className="flex flex-col justify-end items-end gap-3">
+                        {app.status === "pending" && (
+                          <button
+                            onClick={() => markComplete(app._id)}
+                            className="bg-green-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-500/20 flex items-center gap-2"
+                          >
+                            <span>✓</span> Confirm Appointment
+                          </button>
+                        )}
+                        <button className="text-red-500 text-xs font-bold hover:underline">Cancel Slot</button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Blog View */}
-          {activeTab === "blog" && (
-            <div className="bg-slate-900/50 border border-white/[0.08] rounded-3xl p-8">
-              <input 
-                type="text" 
-                placeholder="Blog Title..." 
-                className="w-full bg-transparent text-3xl font-bold text-white placeholder:text-slate-600 outline-none mb-6 border-b border-white/[0.06] pb-4 focus:border-violet-500 transition-colors"
-              />
-              {/* Mock Rich Text Toolbar */}
-              <div className="flex items-center gap-2 mb-4 p-2 bg-white/[0.03] rounded-lg border border-white/[0.04]">
-                {['B', 'I', 'U', 'H1', 'H2', 'Link', 'Image'].map(cmd => (
-                  <button key={cmd} className="px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] rounded-md transition-colors">
-                    {cmd}
-                  </button>
-                ))}
+                )}
               </div>
-              <textarea 
-                placeholder="Start writing your health insights here..."
-                className="w-full h-64 bg-transparent text-slate-300 placeholder:text-slate-600 outline-none resize-none leading-relaxed"
-              ></textarea>
-              <div className="flex justify-end pt-4 border-t border-white/[0.06]">
-                <button className="bg-violet-600 hover:bg-violet-500 text-white px-8 py-3 rounded-xl font-bold transition-colors shadow-lg shadow-violet-600/20">
-                  Publish to Community
-                </button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </main>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

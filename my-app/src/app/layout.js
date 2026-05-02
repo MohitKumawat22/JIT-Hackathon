@@ -1,6 +1,5 @@
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
-import ChatbotWidget from "@/components/patient/ChatbotWidget";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -15,6 +14,8 @@ export const metadata = {
 
 import MedicineAlarmService from "@/components/reminders/MedicineAlarmService";
 
+import ChatButton from "@/components/ChatButton";
+
 export default function RootLayout({ children }) {
   return (
     <html
@@ -24,7 +25,7 @@ export default function RootLayout({ children }) {
       <body className="min-h-full flex flex-col gradient-bg">
         <MedicineAlarmService />
         {children}
-        <ChatbotWidget />
+        <ChatButton />
       </body>
     </html>
   );

@@ -108,7 +108,7 @@ export default function RemindersPage() {
   if (!patient) return null;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8FAFC] pb-20 relative">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-30">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -120,13 +120,26 @@ export default function RemindersPage() {
               <span className="text-2xl">💊</span> Medicine Reminders
             </h1>
           </div>
-          <button 
-            onClick={() => setShowAdd(true)}
-            className="bg-[#10B981] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#059669] transition-all shadow-lg shadow-[#10B981]/20 flex items-center gap-2"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Add New
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={async () => {
+                if (confirm("Seed database with test data?")) {
+                  const res = await fetch("/api/seed");
+                  if (res.ok) alert("✅ Test data loaded!");
+                }
+              }}
+              className="text-[10px] font-bold text-gray-400 hover:text-blue-500 transition-colors uppercase tracking-widest border border-gray-200 px-3 py-1.5 rounded-lg"
+            >
+              Seed Data
+            </button>
+            <button 
+              onClick={() => setShowAdd(true)}
+              className="bg-[#10B981] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-[#059669] transition-all shadow-lg shadow-[#10B981]/20 flex items-center gap-2"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add New
+            </button>
+          </div>
         </div>
       </div>
 

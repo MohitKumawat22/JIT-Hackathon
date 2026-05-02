@@ -89,7 +89,7 @@ function ScheduleCallModal({ reason, onClose, onConfirm }) {
 }
 
 /* ── Action Buttons ── */
-function ActionButtons({ actions, onBook, onCall, onCalendar }) {
+function ActionButtons({ actions, onBook, onCall }) {
   if (!actions || actions.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2 mt-2 ml-1 animate-slide-up">
@@ -379,7 +379,7 @@ export default function TriageChat() {
                   <p className={`text-xs mt-2 ${msg.role === "user" ? "text-primary/50" : "text-text-muted"}`}>{formatTime(msg.time)}</p>
                 </div>
                 {msg.role === "assistant" && msg.actions && (
-                  <ActionButtons actions={msg.actions} onBook={handleBookDoctor} onCall={handleScheduleCall} onCalendar={handleAddCalendar} />
+                  <ActionButtons actions={msg.actions} onBook={handleBookDoctor} onCall={handleScheduleCall} />
                 )}
               </div>
             ))}
