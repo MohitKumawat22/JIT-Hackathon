@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import ScheduleCall from "@/components/patient/ScheduleCall";
+import MedicineReminder from "@/components/patient/MedicineReminder";
 
 const DOCTORS = [
   { id: 1, name: "Dr. Priya Sharma", specialty: "Cardiologist", experience: "12 yrs", rating: 4.8, available: true, fee: "₹500", avatar: "PS", slots: ["10:00 AM", "11:30 AM", "2:00 PM", "4:30 PM"] },
@@ -274,6 +275,19 @@ export default function PatientDashboard() {
   const [bookings, setBookings] = useState([]);
   const [successMsg, setSuccessMsg] = useState("");
   const [doctorsList, setDoctorsList] = useState(DOCTORS);
+  const [refillCount, setRefillCount] = useState(0);
+
+  useEffect(() => {
+    if (!patient?.id) return;
+    fetch(`/api/reminders?patientId=${patient.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const meds = data.reminders || [];
+        const count = meds.filter(m => m.remainingQuantity <= (m.tabletsPerDose * m.refillAlertDays * m.times.length)).length;
+        setRefillCount(count);
+      })
+      .catch(err => console.error(err));
+  }, [patient?.id]);
 
   useEffect(() => {
     const stored = JSON.parse(sessionStorage.getItem("medconnect_patient") || "null");
@@ -444,6 +458,14 @@ export default function PatientDashboard() {
             <Link href="/patient/history" className="text-sm text-gray-500 hover:text-primary transition-colors no-underline">History</Link>
             <Link href="/patient/locate" className="text-sm text-gray-500 hover:text-primary transition-colors no-underline">Find Hospital</Link>
             <Link href="/patient/triage" className="text-sm text-gray-500 hover:text-primary transition-colors no-underline">AI Triage</Link>
+            <Link href="/reminders" className="relative text-sm text-gray-500 hover:text-primary transition-colors no-underline flex items-center">
+              💊 Reminders
+              {refillCount > 0 && (
+                <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                  {refillCount}
+                </span>
+              )}
+            </Link>
             <div className="w-px h-6 bg-gray-200"></div>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
@@ -489,8 +511,7 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        {/* AI Calling Assistant */}
-        <div className="mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <ScheduleCall patientId={patient.id} />
         </div>
 

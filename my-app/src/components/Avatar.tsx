@@ -28,7 +28,8 @@ export function Avatar({ currentMessage, isTalking }) {
     anim.tracks = anim.tracks
       .filter((track) => !track.name.startsWith("Armature."))
       .map((track) => {
-        track.name = track.name.replace(/^mixamorig/, "");
+        // Handle various common mixamo naming conventions
+        track.name = track.name.replace(/^mixamorig_?/, "");
         return track;
       });
     return anim;
@@ -51,7 +52,7 @@ export function Avatar({ currentMessage, isTalking }) {
     if (!actions[animation]) return;
     actions[animation].reset().fadeIn(0.5).play();
     return () => actions[animation]?.fadeOut(0.5);
-  }, [animation]);
+  }, [animation, actions]);
 
   /* ── Audio-driven state ── */
   const [playAudio, setPlayAudio] = useState(false);
@@ -74,118 +75,63 @@ export function Avatar({ currentMessage, isTalking }) {
     }
   }, [playAudio, isTalking]);
 
-  /* ── Audio-synced lip-sync (from reference repo) ── */
-  useFrame(() => {
+  /* ── Lip-Sync and Head Follow ── */
+  useFrame((state) => {
     const audio = currentMessage?.audio;
     const lipsync = currentMessage?.lipSync;
-
-    if (!audio || !lipsync) {
-      if (!isTalking) setAnimation("Idle");
-      return;
-    }
-
-    const currentAudioTime = audio.currentTime;
-    if (audio.paused || audio.ended) {
-      setAnimation("Idle");
-      return;
-    }
-
-    // Reset all visemes with smooth lerp
-    Object.values(corresponding).forEach((value) => {
-      if (nodes.Wolf3D_Head?.morphTargetDictionary?.[value] !== undefined) {
-        nodes.Wolf3D_Head.morphTargetInfluences[
-          nodes.Wolf3D_Head.morphTargetDictionary[value]
-        ] = THREE.MathUtils.lerp(
-          nodes.Wolf3D_Head.morphTargetInfluences[
-            nodes.Wolf3D_Head.morphTargetDictionary[value]
-          ],
-          0,
-          0.5
-        );
-      }
-      if (nodes.Wolf3D_Teeth?.morphTargetDictionary?.[value] !== undefined) {
-        nodes.Wolf3D_Teeth.morphTargetInfluences[
-          nodes.Wolf3D_Teeth.morphTargetDictionary[value]
-        ] = THREE.MathUtils.lerp(
-          nodes.Wolf3D_Teeth.morphTargetInfluences[
-            nodes.Wolf3D_Teeth.morphTargetDictionary[value]
-          ],
-          0,
-          0.5
-        );
-      }
-    });
-
-    // Find current mouth cue and apply
-    for (let i = 0; i < lipsync.mouthCues.length; i++) {
-      const mouthCue = lipsync.mouthCues[i];
-      if (currentAudioTime >= mouthCue.start && currentAudioTime <= mouthCue.end) {
-        const viseme = corresponding[mouthCue.value];
-        if (nodes.Wolf3D_Head?.morphTargetDictionary?.[viseme] !== undefined) {
-          nodes.Wolf3D_Head.morphTargetInfluences[
-            nodes.Wolf3D_Head.morphTargetDictionary[viseme]
-          ] = THREE.MathUtils.lerp(
-            nodes.Wolf3D_Head.morphTargetInfluences[
-              nodes.Wolf3D_Head.morphTargetDictionary[viseme]
-            ],
-            1,
-            0.5
-          );
-        }
-        if (nodes.Wolf3D_Teeth?.morphTargetDictionary?.[viseme] !== undefined) {
-          nodes.Wolf3D_Teeth.morphTargetInfluences[
-            nodes.Wolf3D_Teeth.morphTargetDictionary[viseme]
-          ] = THREE.MathUtils.lerp(
-            nodes.Wolf3D_Teeth.morphTargetInfluences[
-              nodes.Wolf3D_Teeth.morphTargetDictionary[viseme]
-            ],
-            1,
-            0.5
-          );
-        }
-        break;
-      }
-    }
-  });
-
-  /* ── Fallback procedural lip-sync (no audio, just isTalking flag) ── */
-  useFrame((state) => {
-    if (currentMessage?.audio && !currentMessage.audio.ended) return; // audio lip-sync is active
-    if (!isTalking) return;
-
-    const t = state.clock.elapsedTime;
     const head = nodes.Wolf3D_Head;
     const teeth = nodes.Wolf3D_Teeth;
-    if (!head?.morphTargetDictionary) return;
 
-    const visemes = Object.values(corresponding);
-    visemes.forEach((v) => {
+    if (!head || !head.morphTargetDictionary) return;
+
+    const t = state.clock.elapsedTime;
+    
+    // 1. Head Follow (Lerped for smoothness)
+    if (group.current) {
+      const headBone = group.current.getObjectByName("Head") || group.current.getObjectByName("mixamorigHead");
+      if (headBone) {
+        const targetRotation = new THREE.Quaternion();
+        const currentRotation = headBone.quaternion.clone();
+        headBone.lookAt(state.camera.position);
+        targetRotation.copy(headBone.quaternion);
+        headBone.quaternion.copy(currentRotation);
+        headBone.quaternion.slerp(targetRotation, 0.1);
+      }
+    }
+
+    // 2. Lip Sync
+    // Reset visemes
+    Object.values(corresponding).forEach((v) => {
       const hi = head.morphTargetDictionary[v];
       const ti = teeth?.morphTargetDictionary?.[v];
-      if (hi !== undefined)
-        head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], 0, 0.4);
-      if (ti !== undefined)
-        teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], 0, 0.4);
+      if (hi !== undefined) head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], 0, 0.3);
+      if (ti !== undefined) teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], 0, 0.3);
     });
 
-    const cycle = Math.floor(t * 6) % 8;
-    const cueLetters = ["D", "E", "F", "C", "A", "G", "H", "B"];
-    const activeViseme = corresponding[cueLetters[cycle]];
-    const intensity = 0.6 + Math.sin(t * 10) * 0.3;
-
-    const hi = head.morphTargetDictionary[activeViseme];
-    const ti = teeth?.morphTargetDictionary?.[activeViseme];
-    if (hi !== undefined)
-      head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], intensity, 0.4);
-    if (ti !== undefined)
-      teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], intensity, 0.4);
-  });
-
-  /* ── Head follows camera ── */
-  useFrame((state) => {
-    if (group.current) {
-      const headBone = group.current.getObjectByName("Head");
-      if (headBone) headBone.lookAt(state.camera.position);
+    if (audio && lipsync && !audio.paused && !audio.ended) {
+      // Precise Audio Lip Sync
+      const currentAudioTime = audio.currentTime;
+      for (let i = 0; i < lipsync.mouthCues.length; i++) {
+        const cue = lipsync.mouthCues[i];
+        if (currentAudioTime >= cue.start && currentAudioTime <= cue.end) {
+          const viseme = corresponding[cue.value];
+          const hi = head.morphTargetDictionary[viseme];
+          const ti = teeth?.morphTargetDictionary?.[viseme];
+          if (hi !== undefined) head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], 1, 0.8);
+          if (ti !== undefined) teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], 1, 0.8);
+          break;
+        }
+      }
+    } else if (isTalking) {
+      // Fallback Procedural Lip Sync
+      const cycle = Math.floor(t * 10) % 8;
+      const cueLetters = ["D", "E", "F", "C", "A", "G", "H", "B"];
+      const activeViseme = corresponding[cueLetters[cycle]];
+      const intensity = 0.5 + Math.sin(t * 15) * 0.4;
+      const hi = head.morphTargetDictionary[activeViseme];
+      const ti = teeth?.morphTargetDictionary?.[activeViseme];
+      if (hi !== undefined) head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], intensity, 0.8);
+      if (ti !== undefined) teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], intensity, 0.8);
     }
   });
 
@@ -197,8 +143,8 @@ export function Avatar({ currentMessage, isTalking }) {
     const blink = Math.sin(t * 0.5) > 0.97 ? 1 : 0;
     const blL = head.morphTargetDictionary["eyeBlinkLeft"];
     const blR = head.morphTargetDictionary["eyeBlinkRight"];
-    if (blL !== undefined) head.morphTargetInfluences[blL] = blink;
-    if (blR !== undefined) head.morphTargetInfluences[blR] = blink;
+    if (blL !== undefined) head.morphTargetInfluences[blL] = THREE.MathUtils.lerp(head.morphTargetInfluences[blL], blink, 0.5);
+    if (blR !== undefined) head.morphTargetInfluences[blR] = THREE.MathUtils.lerp(head.morphTargetInfluences[blR], blink, 0.5);
   });
 
   return (

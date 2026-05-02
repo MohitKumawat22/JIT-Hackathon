@@ -79,6 +79,20 @@ export default function LocatePage() {
   const [loadState, setLoadState] = useState("locating"); // locating | loading | ready | error
   const [errorMsg, setErrorMsg] = useState("");
   const [dataSource, setDataSource] = useState("");
+  const [refillCount, setRefillCount] = useState(0);
+
+  useEffect(() => {
+    const patient = JSON.parse(sessionStorage.getItem("medconnect_patient") || "null");
+    if (!patient?.id) return;
+    fetch(`/api/reminders?patientId=${patient.id}`)
+      .then(res => res.json())
+      .then(data => {
+        const meds = data.reminders || [];
+        const count = meds.filter(m => m.remainingQuantity <= (m.tabletsPerDose * m.refillAlertDays * m.dailyDoses)).length;
+        setRefillCount(count);
+      })
+      .catch(err => console.error(err));
+  }, []);
 
   // Get user location & fetch facilities
   useEffect(() => {
@@ -156,6 +170,14 @@ export default function LocatePage() {
         <div className="flex items-center gap-4">
           <Link href="/patient/triage" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">AI Triage</Link>
           <Link href="/patient/history" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">History</Link>
+          <Link href="/reminders" className="relative text-sm text-text-muted hover:text-foreground transition-colors no-underline flex items-center">
+            💊 Reminders
+            {refillCount > 0 && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                {refillCount}
+              </span>
+            )}
+          </Link>
           <Link href="/patient/login" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">Patient Portal</Link>
         </div>
       </header>

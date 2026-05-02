@@ -58,6 +58,7 @@ export default function PatientHistoryPage() {
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [totalCalls, setTotalCalls] = useState(0);
+  const [refillCount, setRefillCount] = useState(0);
 
   // Fetch data from MongoDB on mount
   useEffect(() => {
@@ -81,6 +82,16 @@ export default function PatientHistoryPage() {
         const triageData = await triageRes.json();
         const bookingData = await bookingRes.json();
         const callData = await callRes.json();
+
+        // Fetch reminders separately so it doesn't block main data loading
+        fetch(`/api/reminders?patientId=${stored.id}`)
+          .then(res => res.json())
+          .then(data => {
+            const meds = data.reminders || [];
+            const count = meds.filter(m => m.remainingQuantity <= (m.tabletsPerDose * m.refillAlertDays * m.dailyDoses)).length;
+            setRefillCount(count);
+          })
+          .catch(err => console.error(err));
 
         // Set patient info
         if (profileData.patient) {
@@ -176,6 +187,14 @@ export default function PatientHistoryPage() {
         <div className="flex items-center gap-4">
           <Link href="/patient/triage" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">AI Triage</Link>
           <Link href="/patient/locate" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">Find Hospital</Link>
+          <Link href="/reminders" className="relative text-sm text-text-muted hover:text-foreground transition-colors no-underline flex items-center">
+            💊 Reminders
+            {refillCount > 0 && (
+              <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                {refillCount}
+              </span>
+            )}
+          </Link>
           <Link href="/patient/login" className="text-sm text-text-muted hover:text-foreground transition-colors no-underline">Sign Out</Link>
         </div>
       </header>

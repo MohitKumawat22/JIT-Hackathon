@@ -12,13 +12,18 @@ export const metadata = {
     "AI-powered healthcare platform — find doctors, book appointments, and get home remedy recommendations.",
 };
 
+import MedicineAlarmService from "@/components/reminders/MedicineAlarmService";
+
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       className={`${plusJakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col gradient-bg">{children}</body>
+      <body className="min-h-full flex flex-col gradient-bg">
+        <MedicineAlarmService />
+        {children}
+      </body>
     </html>
   );
 }

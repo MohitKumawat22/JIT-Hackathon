@@ -51,9 +51,34 @@ Example response structure:
 
 Take care! 💙"`;
 
+const REMINDER_EXTRACTION_PROMPT = `You are MediAI, a hospital assistant. The user wants to set a medicine reminder.
+
+Extract the medicine reminder details and respond ONLY in this JSON format:
+{
+  "reminderData": {
+    "medicineName": "Medicine name",
+    "medicineType": "tablet | capsule | syrup | injection | drops",
+    "dosage": "e.g. 500mg",
+    "frequency": "once_daily | twice_daily | thrice_daily | every_4_hours | every_6_hours | every_8_hours | once_weekly | twice_weekly | alternate_days",
+    "times": ["HH:MM", "HH:MM"],
+    "totalQuantity": number,
+    "tabletsPerDose": number,
+    "notes": "any special instructions"
+  },
+  "confirmMessage": "Friendly 1-sentence confirmation of what you understood"
+}
+
+Rules:
+- If user says "morning evening" → times: ["08:00", "20:00"]
+- If user says "morning afternoon night" → times: ["08:00", "13:00", "21:00"]
+- If user says "once a week on Monday" → frequency: "once_weekly", specificDays: [1]
+- If user says "30 tablets" → totalQuantity: 30
+- Default tabletsPerDose is 1 unless stated otherwise
+- Respond ONLY with the JSON. No other text.`;
+
 export async function POST(request) {
   try {
-    const { messages, patientInfo, patientId } = await request.json();
+    const { messages, patientInfo, patientId, isReminderPrompt } = await request.json();
 
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
@@ -64,7 +89,7 @@ export async function POST(request) {
     }
 
     // Build messages array with system prompt
-    const chatMessages = [{ role: "system", content: SYSTEM_PROMPT }];
+    const chatMessages = [{ role: "system", content: isReminderPrompt ? REMINDER_EXTRACTION_PROMPT : SYSTEM_PROMPT }];
 
     // Add patient context if available
     if (patientInfo) {
@@ -155,6 +180,20 @@ export async function POST(request) {
     let reply =
       data.choices?.[0]?.message?.content ||
       "I'm sorry, I couldn't generate a response. Please try again.";
+
+    // If it was a reminder prompt, try to parse JSON
+    if (isReminderPrompt) {
+      try {
+        // Find JSON block if it's wrapped in backticks
+        const jsonMatch = reply.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : reply;
+        const parsed = JSON.parse(jsonStr);
+        return NextResponse.json(parsed);
+      } catch (err) {
+        console.error("Failed to parse reminder JSON", reply);
+        return NextResponse.json({ error: "Failed to parse AI response" }, { status: 500 });
+      }
+    }
 
     // Parse action tags from the reply
     const actions = [];
