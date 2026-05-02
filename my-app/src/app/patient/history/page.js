@@ -20,6 +20,14 @@ const STATUS_CONFIG = {
   upcoming: { label: "Upcoming", color: "text-blue-400", bg: "bg-blue-500/12" },
 };
 
+const CALL_STATUS_CONFIG = {
+  scheduled:   { label: "Scheduled",   color: "text-blue-400",   bg: "bg-blue-500/12",   dot: "bg-blue-400" },
+  "in-progress": { label: "In Progress", color: "text-purple-400", bg: "bg-purple-500/12", dot: "bg-purple-400 animate-pulse" },
+  completed:   { label: "Completed",   color: "text-green-400",  bg: "bg-green-500/12",  dot: "bg-green-400" },
+  failed:      { label: "Failed",      color: "text-red-400",    bg: "bg-red-500/12",    dot: "bg-red-400" },
+  cancelled:   { label: "Cancelled",   color: "text-gray-400",   bg: "bg-gray-500/12",   dot: "bg-gray-400" },
+};
+
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -49,6 +57,7 @@ export default function PatientHistoryPage() {
   const [patient, setPatient] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalCalls, setTotalCalls] = useState(0);
 
   // Fetch data from MongoDB on mount
   useEffect(() => {
@@ -60,16 +69,18 @@ export default function PatientHistoryPage() {
           return;
         }
 
-        // Fetch profile, triages, and bookings in parallel
-        const [profileRes, triageRes, bookingRes] = await Promise.all([
+        // Fetch profile, triages, bookings, and calls in parallel
+        const [profileRes, triageRes, bookingRes, callRes] = await Promise.all([
           fetch(`/api/patient/profile?patientId=${stored.id}`),
           fetch(`/api/triage?patientId=${stored.id}`),
           fetch(`/api/bookings?patientId=${stored.id}`),
+          fetch(`/api/calls?patientId=${stored.id}`),
         ]);
 
         const profileData = await profileRes.json();
         const triageData = await triageRes.json();
         const bookingData = await bookingRes.json();
+        const callData = await callRes.json();
 
         // Set patient info
         if (profileData.patient) {
@@ -109,6 +120,21 @@ export default function PatientHistoryPage() {
             notes: b.notes || "",
           });
         }
+
+        // Add call entries
+        for (const c of callData.calls || []) {
+          entries.push({
+            id: c._id,
+            type: "call",
+            date: c.scheduledAt,
+            title: `AI Health Call`,
+            callStatus: c.status,
+            severity: c.severity,
+            summary: c.summary || "",
+            notes: c.notes || "",
+          });
+        }
+        setTotalCalls((callData.calls || []).length);
 
         // Sort by date descending
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -220,6 +246,13 @@ export default function PatientHistoryPage() {
                   </div>
                   <span className="text-sm font-bold text-green-400">{completedVisits}</span>
                 </div>
+                <div className="flex items-center justify-between glass rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"><span className="text-sm">📞</span></div>
+                    <span className="text-sm text-text-secondary">AI Calls</span>
+                  </div>
+                  <span className="text-sm font-bold text-blue-400">{totalCalls}</span>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -239,6 +272,7 @@ export default function PatientHistoryPage() {
                 { value: "all", label: "All" },
                 { value: "triage", label: "Triages" },
                 { value: "booking", label: "Bookings" },
+                { value: "call", label: "Calls" },
               ].map((opt) => (
                 <button key={opt.value} id={`filter-${opt.value}`} onClick={() => setFilterType(opt.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -299,13 +333,18 @@ export default function PatientHistoryPage() {
                     {items.map((entry) => {
                       const isExpanded = expandedId === entry.id;
                       const isTriage = entry.type === "triage";
-                      const sev = isTriage ? SEVERITY_CONFIG[entry.severity] : null;
-                      const stat = !isTriage ? STATUS_CONFIG[entry.status] : null;
+                      const isCall = entry.type === "call";
+                      const sev = (isTriage || isCall) ? SEVERITY_CONFIG[entry.severity] : null;
+                      const stat = !isTriage && !isCall ? STATUS_CONFIG[entry.status] : null;
+                      const callSt = isCall ? CALL_STATUS_CONFIG[entry.callStatus] : null;
+                      const isAlertCall = isCall && ["critical", "high"].includes(entry.severity) && entry.callStatus === "completed";
 
                       return (
                         <div key={entry.id} className="relative pl-10">
                           <div className={`absolute left-[10px] top-5 w-3 h-3 rounded-full border-2 border-background z-10 ${
-                            isTriage
+                            isCall
+                              ? (callSt?.dot || "bg-blue-400")
+                              : isTriage
                               ? (sev?.dot || "bg-primary")
                               : stat?.color === "text-green-400" ? "bg-green-400" : stat?.color === "text-red-400" ? "bg-red-400" : "bg-blue-400"
                           }`} />
@@ -314,29 +353,49 @@ export default function PatientHistoryPage() {
                             onClick={() => setExpandedId(isExpanded ? null : entry.id)}
                             className={`glass rounded-xl p-4 cursor-pointer transition-all hover:bg-surface-hover ${
                               isExpanded ? "ring-1 ring-primary/20" : ""
-                            }`}>
+                            } ${isAlertCall ? "ring-1 ring-red-500/30" : ""}`}>
                             <div className="flex items-start justify-between gap-3 mb-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-1">
-                                  <span className="text-sm">{isTriage ? "🤖" : "🏥"}</span>
+                                  <span className="text-sm">{isCall ? "📞" : isTriage ? "🤖" : "🏥"}</span>
                                   <h3 className="text-sm font-semibold truncate">{entry.title}</h3>
                                 </div>
                                 <p className="text-xs text-text-muted">
                                   {formatDate(entry.date)} at {formatTime(entry.date)}
                                 </p>
                               </div>
+                              {/* Triage severity badge */}
                               {isTriage && sev && (
                                 <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${sev.bg} ${sev.color}`}>
                                   <span className={`w-1.5 h-1.5 rounded-full ${sev.dot}`} />
                                   {sev.label}
                                 </span>
                               )}
-                              {!isTriage && stat && (
+                              {/* Booking status badge */}
+                              {!isTriage && !isCall && stat && (
                                 <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${stat.bg} ${stat.color}`}>
                                   {stat.label}
                                 </span>
                               )}
+                              {/* Call status badge */}
+                              {isCall && callSt && (
+                                <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${callSt.bg} ${callSt.color}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${callSt.dot}`} />
+                                  {callSt.label}
+                                </span>
+                              )}
+                              {/* Call severity badge (only on completed calls) */}
+                              {isCall && entry.callStatus === "completed" && sev && (
+                                <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sev.bg} ${sev.color}`}>
+                                  {entry.severity === "critical" || entry.severity === "high" ? "⚠️ " : ""}{sev.label}
+                                </span>
+                              )}
                             </div>
+
+                            {/* Call notes */}
+                            {isCall && entry.notes && (
+                              <p className="text-xs text-text-muted mb-1">💬 {entry.notes}</p>
+                            )}
 
                             {isTriage && entry.symptoms.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -346,7 +405,7 @@ export default function PatientHistoryPage() {
                               </div>
                             )}
 
-                            {!isTriage && (
+                            {!isTriage && !isCall && (
                               <p className="text-xs text-text-muted mb-1">{entry.department} • {entry.facility}</p>
                             )}
 
@@ -356,8 +415,34 @@ export default function PatientHistoryPage() {
                               </div>
                             )}
 
+                            {/* Call summary preview */}
+                            {isCall && entry.callStatus === "completed" && entry.summary && (
+                              <div className={`rounded-lg px-3 py-2 text-xs leading-relaxed ${sev?.bg || "bg-blue-500/12"} ${sev?.color || "text-blue-400"} border ${sev?.border || "border-blue-500/20"}`}>
+                                📋 {entry.summary.slice(0, 150)}{entry.summary.length > 150 ? "..." : ""}
+                              </div>
+                            )}
+
                             {isExpanded && (
                               <div className="mt-4 pt-4 border-t border-border space-y-3 animate-fade-in">
+                                {/* Call details expanded */}
+                                {isCall && (
+                                  <>
+                                    {entry.summary && (
+                                      <div>
+                                        <p className="text-xs font-medium text-text-secondary mb-1">Call Summary</p>
+                                        <p className="text-xs text-text-secondary leading-relaxed bg-surface border border-border rounded-xl px-3 py-2">{entry.summary}</p>
+                                      </div>
+                                    )}
+                                    {!entry.summary && (
+                                      <p className="text-xs text-text-muted">
+                                        {entry.callStatus === "scheduled" ? "Awaiting call…" :
+                                          entry.callStatus === "in-progress" ? "Call in progress…" :
+                                          entry.callStatus === "failed" ? "Call could not be connected." :
+                                          "Call was cancelled."}
+                                      </p>
+                                    )}
+                                  </>
+                                )}
                                 {isTriage && (
                                   <>
                                     <p className="text-xs text-text-muted">
@@ -381,7 +466,7 @@ export default function PatientHistoryPage() {
                                     )}
                                   </>
                                 )}
-                                {!isTriage && (
+                                {!isTriage && !isCall && (
                                   <>
                                     <div className="grid grid-cols-2 gap-3">
                                       <div>
