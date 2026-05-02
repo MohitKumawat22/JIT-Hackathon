@@ -94,13 +94,11 @@ function triageWorkflow(userInput, langCode) {
   for (const entry of SYMPTOM_DB) {
     const matched = entry.keywords.some((kw) => input.includes(kw));
     if (matched) {
-      const text =
-        entry.response[langCode] || entry.response["en"];
-      return { text, severity: entry.severity };
+      const text = entry.response[langCode] || entry.response["en"];
+      return { text, severity: entry.severity, matchedKeywords: entry.keywords.filter((kw) => input.includes(kw)) };
     }
   }
 
-  // Default fallback
   const fallbacks = {
     en: "I didn't detect a specific symptom in your message. Could you describe your symptoms in more detail? For example:\n- 'I have a fever and chills'\n- 'I am experiencing chest pain'\n- 'I have a bad headache'\n\nThe more detail you provide, the better I can help you.",
     hi: "मुझे आपके संदेश में कोई विशिष्ट लक्षण नहीं मिला। क्या आप अपने लक्षणों का विस्तार से वर्णन कर सकते हैं?",
@@ -108,7 +106,33 @@ function triageWorkflow(userInput, langCode) {
     fr: "Je n'ai pas détecté de symptôme spécifique. Pourriez-vous décrire vos symptômes plus en détail ?",
   };
 
-  return { text: fallbacks[langCode] || fallbacks["en"], severity: "info" };
+  return { text: fallbacks[langCode] || fallbacks["en"], severity: "info", matchedKeywords: [] };
+}
+
+/* ────────────────────────────────────────────────────────────
+   Save triage session to MongoDB via API
+   ──────────────────────────────────────────────────────────── */
+async function saveTriageSession(session) {
+  try {
+    const patient = JSON.parse(sessionStorage.getItem("medconnect_patient") || "null");
+    if (!patient?.id) return;
+
+    await fetch("/api/triage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        patientId: patient.id,
+        title: `AI Triage — ${session.symptoms.length > 0 ? session.symptoms.join(", ") : "General"}`,
+        severity: session.severity,
+        symptoms: session.symptoms,
+        transcript: session.transcript,
+        recommendation: session.recommendation,
+        lang: session.lang,
+      }),
+    });
+  } catch (e) {
+    console.error("Failed to save triage session:", e);
+  }
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -146,12 +170,10 @@ export default function TriageChat() {
 
   const currentLang = LANGUAGES.find((l) => l.code === lang) || LANGUAGES[0];
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Set initial greeting when language changes
   useEffect(() => {
     const l = LANGUAGES.find((lg) => lg.code === lang) || LANGUAGES[0];
     setMessages([
@@ -173,7 +195,6 @@ export default function TriageChat() {
     setInput("");
     setIsTyping(true);
 
-    // Simulate a processing delay (mock agentic AI thinking)
     setTimeout(() => {
       const result = triageWorkflow(trimmed, lang);
       const botMsg = {
@@ -184,6 +205,20 @@ export default function TriageChat() {
       };
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
+
+      // Save to MongoDB if severity is not just info
+      if (result.severity !== "info") {
+        saveTriageSession({
+          symptoms: result.matchedKeywords,
+          severity: result.severity,
+          transcript: [
+            { role: "user", text: trimmed },
+            { role: "assistant", text: result.text },
+          ],
+          recommendation: result.text.split("**Recommendation:**")[1]?.trim().split("\n")[0] || result.text.slice(0, 120),
+          lang,
+        });
+      }
     }, 1200 + Math.random() * 800);
   }, [input, lang]);
 
@@ -223,15 +258,8 @@ export default function TriageChat() {
           >
             <span>🌐</span>
             <span className="text-text-secondary">{currentLang.label}</span>
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className={`text-text-muted transition-transform ${langOpen ? "rotate-180" : ""}`}
-            >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              className={`text-text-muted transition-transform ${langOpen ? "rotate-180" : ""}`}>
               <path d="m6 9 6 6 6-6" />
             </svg>
           </button>
@@ -239,19 +267,11 @@ export default function TriageChat() {
           {langOpen && (
             <div className="absolute right-0 top-full mt-2 w-44 glass rounded-xl py-1 z-50 animate-fade-in">
               {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  id={`lang-${l.code}`}
-                  onClick={() => {
-                    setLang(l.code);
-                    setLangOpen(false);
-                  }}
+                <button key={l.code} id={`lang-${l.code}`}
+                  onClick={() => { setLang(l.code); setLangOpen(false); }}
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors hover:bg-surface-hover ${
-                    lang === l.code
-                      ? "text-primary font-medium"
-                      : "text-text-secondary"
-                  }`}
-                >
+                    lang === l.code ? "text-primary font-medium" : "text-text-secondary"
+                  }`}>
                   {l.label}
                 </button>
               ))}
@@ -263,37 +283,24 @@ export default function TriageChat() {
       {/* ── Chat messages ── */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 glass border-t-0 border-b-0 rounded-none bg-[rgba(0,0,0,0.15)]">
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-slide-up`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-3 ${
-                msg.role === "user"
-                  ? "bg-primary/15 border border-primary/20 text-foreground"
-                  : "bg-surface border border-border text-foreground"
-              }`}
-            >
-              {/* Severity badge for bot messages */}
+          <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-slide-up`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+              msg.role === "user"
+                ? "bg-primary/15 border border-primary/20 text-foreground"
+                : "bg-surface border border-border text-foreground"
+            }`}>
               {msg.role === "assistant" && msg.severity && msg.severity !== "info" && (
-                <div className="mb-2">
-                  <SeverityBadge severity={msg.severity} />
-                </div>
+                <div className="mb-2"><SeverityBadge severity={msg.severity} /></div>
               )}
-
-              {/* Message text with basic markdown-like bold */}
               <div className="text-sm leading-relaxed whitespace-pre-wrap">
                 {msg.text.split(/(\*\*.*?\*\*)/g).map((part, j) =>
                   part.startsWith("**") && part.endsWith("**") ? (
-                    <strong key={j} className="font-semibold text-foreground">
-                      {part.slice(2, -2)}
-                    </strong>
+                    <strong key={j} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>
                   ) : (
                     <span key={j}>{part}</span>
                   )
                 )}
               </div>
-
               <p className={`text-xs mt-2 ${msg.role === "user" ? "text-primary/50" : "text-text-muted"}`}>
                 {formatTime(msg.time)}
               </p>
@@ -301,7 +308,6 @@ export default function TriageChat() {
           </div>
         ))}
 
-        {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start animate-fade-in">
             <div className="bg-surface border border-border rounded-2xl px-4 py-3">
@@ -328,10 +334,8 @@ export default function TriageChat() {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
-              lang === "hi"
-                ? "अपने लक्षण यहाँ बताएं..."
-                : lang === "es"
-                ? "Describe sus síntomas aquí..."
+              lang === "hi" ? "अपने लक्षण यहाँ बताएं..."
+                : lang === "es" ? "Describe sus síntomas aquí..."
                 : "Describe your symptoms here..."
             }
             rows={1}
