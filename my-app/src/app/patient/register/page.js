@@ -1,121 +1,270 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export default function PatientRegisterPage() {
-  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+    age: "",
+    blood: "",
+  });
   const [agreed, setAgreed] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError("");
+  };
+
+  const passwordStrength = () => {
+    const p = form.password;
+    if (!p) return { level: 0, label: "", color: "" };
+    let score = 0;
+    if (p.length >= 6) score++;
+    if (p.length >= 10) score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[0-9]/.test(p)) score++;
+    if (/[^A-Za-z0-9]/.test(p)) score++;
+    if (score <= 1) return { level: 1, label: "Weak", color: "bg-red-400" };
+    if (score <= 3) return { level: 2, label: "Medium", color: "bg-yellow-400" };
+    return { level: 3, label: "Strong", color: "bg-green-400" };
+  };
+
+  const strength = passwordStrength();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (!form.firstName || !form.lastName || !form.email || !form.username || !form.password) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (!agreed) {
+      setError("Please agree to the Terms of Service.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          username: form.username,
+          password: form.password,
+          age: form.age ? parseInt(form.age) : null,
+          blood: form.blood,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Registration failed.");
+        setLoading(false);
+        return;
+      }
+
+      // Save patient session
+      sessionStorage.setItem("medconnect_patient", JSON.stringify(data.patient));
+      router.push("/patient/triage");
+    } catch (err) {
+      setError("Network error. Please try again.");
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col flex-1 items-center justify-center min-h-screen relative overflow-hidden px-4 py-12">
-      <div className="absolute top-10 left-[10%] w-64 h-64 rounded-full bg-accent/5 blur-3xl animate-float pointer-events-none" />
-      <div className="absolute bottom-10 right-[15%] w-80 h-80 rounded-full bg-primary/4 blur-3xl animate-float-delayed pointer-events-none" />
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative orbs */}
+      <div className="absolute top-20 left-[15%] w-72 h-72 rounded-full bg-primary/5 blur-3xl animate-float pointer-events-none" />
+      <div className="absolute bottom-20 right-[10%] w-80 h-80 rounded-full bg-secondary/4 blur-3xl animate-float-delayed pointer-events-none" />
 
-      <div className="absolute top-6 left-6 animate-fade-in">
-        <Link href="/patient/login" id="back-login" className="flex items-center gap-2 text-text-muted hover:text-foreground transition-colors text-sm no-underline">
+      <div className="w-full max-w-lg">
+        {/* Back link */}
+        <Link
+          href="/patient/login"
+          className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-foreground transition-colors mb-6 no-underline"
+        >
           ← Back to Login
         </Link>
-      </div>
-
-      <div className="w-full max-w-md animate-slide-up">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
-              <span className="text-[#0a0f1a] text-lg font-bold">+</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight">Med<span className="text-primary">Connect</span></span>
-          </div>
-          <h1 className="text-2xl font-bold mb-2">Create Account</h1>
-          <p className="text-text-muted text-sm">Register as a new patient</p>
-        </div>
 
         <div className="glass rounded-2xl p-8">
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4 shadow-lg">
+              <span className="text-[#0a0f1a] text-xl font-bold">+</span>
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Create Account</h1>
+            <p className="text-sm text-text-muted">Join MedConnect — your health, simplified</p>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center animate-fade-in">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name row */}
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="reg-first-name" className="block text-sm font-medium text-text-secondary mb-2">First Name</label>
-                <input id="reg-first-name" type="text" className="input-field" placeholder="John" autoComplete="given-name" />
+                <label htmlFor="firstName" className="block text-xs text-text-muted mb-1.5">First Name *</label>
+                <input id="firstName" name="firstName" value={form.firstName} onChange={handleChange} className="input-field text-sm" placeholder="Arjun" />
               </div>
               <div>
-                <label htmlFor="reg-last-name" className="block text-sm font-medium text-text-secondary mb-2">Last Name</label>
-                <input id="reg-last-name" type="text" className="input-field" placeholder="Doe" autoComplete="family-name" />
+                <label htmlFor="lastName" className="block text-xs text-text-muted mb-1.5">Last Name *</label>
+                <input id="lastName" name="lastName" value={form.lastName} onChange={handleChange} className="input-field text-sm" placeholder="Mehta" />
               </div>
             </div>
 
+            {/* Email */}
             <div>
-              <label htmlFor="reg-email" className="block text-sm font-medium text-text-secondary mb-2">Email Address</label>
-              <input id="reg-email" type="email" className="input-field" placeholder="john@example.com" autoComplete="email" />
+              <label htmlFor="email" className="block text-xs text-text-muted mb-1.5">Email *</label>
+              <input id="email" name="email" type="email" value={form.email} onChange={handleChange} className="input-field text-sm" placeholder="arjun@example.com" />
             </div>
 
+            {/* Phone */}
             <div>
-              <label htmlFor="reg-phone" className="block text-sm font-medium text-text-secondary mb-2">Phone Number</label>
-              <input id="reg-phone" type="tel" className="input-field" placeholder="+91 9876543210" autoComplete="tel" />
+              <label htmlFor="phone" className="block text-xs text-text-muted mb-1.5">Phone Number</label>
+              <input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange} className="input-field text-sm" placeholder="+91 98765 43210" />
             </div>
 
-            <div>
-              <label htmlFor="reg-username" className="block text-sm font-medium text-text-secondary mb-2">Username</label>
-              <input id="reg-username" type="text" className="input-field" placeholder="Choose a username" autoComplete="username" />
+            {/* Age + Blood Group */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="age" className="block text-xs text-text-muted mb-1.5">Age</label>
+                <input id="age" name="age" type="number" value={form.age} onChange={handleChange} className="input-field text-sm" placeholder="28" />
+              </div>
+              <div>
+                <label htmlFor="blood" className="block text-xs text-text-muted mb-1.5">Blood Group</label>
+                <select id="blood" name="blood" value={form.blood} onChange={handleChange} className="input-field text-sm">
+                  <option value="">Select</option>
+                  <option value="A+">A+</option><option value="A-">A-</option>
+                  <option value="B+">B+</option><option value="B-">B-</option>
+                  <option value="AB+">AB+</option><option value="AB-">AB-</option>
+                  <option value="O+">O+</option><option value="O-">O-</option>
+                </select>
+              </div>
             </div>
 
+            {/* Username */}
             <div>
-              <label htmlFor="reg-password" className="block text-sm font-medium text-text-secondary mb-2">Password</label>
+              <label htmlFor="username" className="block text-xs text-text-muted mb-1.5">Username *</label>
+              <input id="username" name="username" value={form.username} onChange={handleChange} className="input-field text-sm" placeholder="arjun_m" />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-xs text-text-muted mb-1.5">Password *</label>
               <div className="relative">
-                <input id="reg-password" type={showPassword ? "text" : "password"} className="input-field pr-12" placeholder="Create a strong password" autoComplete="new-password" />
-                <button type="button" id="toggle-reg-password" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-foreground transition-colors p-1 text-xs" onClick={() => setShowPassword(!showPassword)}>
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={handleChange}
+                  className="input-field text-sm pr-16"
+                  placeholder="Min 6 characters"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-muted hover:text-foreground"
+                >
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
-              {/* Password strength indicator */}
-              <div className="mt-2 flex gap-1">
-                <div className="h-1 flex-1 rounded-full bg-danger/40" />
-                <div className="h-1 flex-1 rounded-full bg-warning/40" />
-                <div className="h-1 flex-1 rounded-full bg-border" />
-                <div className="h-1 flex-1 rounded-full bg-border" />
-              </div>
-              <p className="text-xs text-text-muted mt-1">Min. 8 characters with uppercase, lowercase, and number</p>
+              {form.password && (
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 flex gap-1">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= strength.level ? strength.color : "bg-surface"}`} />
+                    ))}
+                  </div>
+                  <span className={`text-xs ${strength.color.replace("bg-", "text-")}`}>{strength.label}</span>
+                </div>
+              )}
             </div>
 
+            {/* Confirm Password */}
             <div>
-              <label htmlFor="reg-confirm-password" className="block text-sm font-medium text-text-secondary mb-2">Confirm Password</label>
-              <input id="reg-confirm-password" type="password" className="input-field" placeholder="Confirm your password" autoComplete="new-password" />
+              <label htmlFor="confirmPassword" className="block text-xs text-text-muted mb-1.5">Confirm Password *</label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                value={form.confirmPassword}
+                onChange={handleChange}
+                className="input-field text-sm"
+                placeholder="Re-enter password"
+              />
             </div>
 
             {/* Terms */}
-            <div className="flex items-start gap-3">
+            <label className="flex items-start gap-2 cursor-pointer">
               <input
-                id="reg-terms"
                 type="checkbox"
                 checked={agreed}
                 onChange={(e) => setAgreed(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded accent-primary"
+                className="mt-0.5 accent-primary"
               />
-              <label htmlFor="reg-terms" className="text-xs text-text-muted leading-relaxed cursor-pointer">
-                I agree to the <a href="#" className="text-primary no-underline hover:text-primary-dark">Terms of Service</a> and <a href="#" className="text-primary no-underline hover:text-primary-dark">Privacy Policy</a>. I consent to the processing of my health data.
-              </label>
-            </div>
+              <span className="text-xs text-text-muted leading-relaxed">
+                I agree to the <span className="text-primary">Terms of Service</span> and <span className="text-primary">Privacy Policy</span>
+              </span>
+            </label>
 
-            <button type="submit" id="register-submit" className="btn-primary w-full" disabled={!agreed}>
-              Create Account
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full py-3 text-sm disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-[#0a0f1a]/30 border-t-[#0a0f1a] rounded-full animate-spin" />
+                  Creating Account...
+                </span>
+              ) : (
+                "Create Account"
+              )}
             </button>
           </form>
 
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-text-muted uppercase tracking-wider">or</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <button id="register-google" className="btn-secondary text-sm py-3">Google</button>
-            <button id="register-aadhaar" className="btn-secondary text-sm py-3">Aadhaar</button>
-          </div>
-        </div>
-
-        <div className="text-center mt-6 animate-slide-up delay-300">
-          <p className="text-text-muted text-sm">
+          <p className="text-center text-xs text-text-muted mt-6">
             Already have an account?{" "}
-            <Link href="/patient/login" id="go-to-login" className="text-primary hover:text-primary-dark transition-colors font-medium no-underline">Sign in</Link>
+            <Link href="/patient/login" className="text-primary hover:underline no-underline">
+              Sign in
+            </Link>
           </p>
         </div>
       </div>
