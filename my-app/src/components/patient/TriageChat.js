@@ -21,31 +21,7 @@ const DOCTORS = [
 ];
 
 /* ── ICS Calendar Generator ── */
-function generateICS({ doctorName, specialty, date, slot, reason }) {
-  try {
-    const [year, month, day] = date.split("-");
-    const [time, period] = slot.split(" ");
-    let [hours, minutes] = time.split(":");
-    hours = parseInt(hours, 10);
-    if (period === "PM" && hours !== 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-    const startDate = new Date(year, month - 1, day, hours, parseInt(minutes, 10));
-    const endDate = new Date(startDate.getTime() + 30 * 60000);
-    const fmt = (d) => d.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-    const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "BEGIN:VEVENT",
-      `DTSTART:${fmt(startDate)}`, `DTEND:${fmt(endDate)}`,
-      `SUMMARY:AmritCare - ${doctorName} (${specialty})`,
-      `DESCRIPTION:${reason || "Health consultation"}`,
-      "END:VEVENT", "END:VCALENDAR"].join("\n");
-    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Appointment_${doctorName.replace(/ /g, "_")}.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (err) { console.error("ICS failed:", err); }
-}
+
 
 /* ── Booking Modal ── */
 function BookingModal({ doctor, onClose, onConfirm }) {
@@ -123,9 +99,6 @@ function ActionButtons({ actions, onBook, onCall, onCalendar }) {
         );
         if (action.type === "schedule_call") return (
           <button key={i} onClick={() => onCall(action.reason)} className="flex items-center gap-1.5 bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-blue-700 transition-all">📞 Schedule Call</button>
-        );
-        if (action.type === "add_calendar") return (
-          <button key={i} onClick={() => onCalendar(action)} className="flex items-center gap-1.5 bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-purple-700 transition-all">🗓️ Add to Calendar</button>
         );
         return null;
       })}
@@ -285,7 +258,7 @@ export default function TriageChat() {
       console.error("Booking sync failed:", err);
     }
 
-    generateICS({ doctorName: booking.doctor.name, specialty: booking.doctor.specialty, date: booking.date, slot: booking.slot, reason: "Health consultation" });
+
     
     // Trigger WhatsApp Notification
     const patientName = JSON.parse(sessionStorage.getItem("medconnect_patient") || "{}").name || "Patient";
@@ -296,10 +269,10 @@ export default function TriageChat() {
 
     setMessages((prev) => [...prev, {
       role: "assistant",
-      text: `✅ Appointment booked with ${booking.doctor.name} (${booking.doctor.specialty}) on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}.\n\n📥 Calendar event downloaded!`,
+      text: `✅ Appointment booked with ${booking.doctor.name} (${booking.doctor.specialty}) on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}.`,
       time: new Date(),
     }]);
-    showToast(`✅ Booked ${booking.doctor.name} — calendar event downloaded!`);
+    showToast(`✅ Booked ${booking.doctor.name}`);
   };
 
   const handleScheduleCall = (reason) => { setScheduleCallData({ reason: reason || "" }); };
@@ -320,12 +293,7 @@ export default function TriageChat() {
     } catch { showToast("❌ Failed to schedule call."); }
   };
 
-  const handleAddCalendar = (action) => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    generateICS({ doctorName: action.specialty || "General Physician", specialty: action.specialty || "General Physician", date: tomorrow.toISOString().split("T")[0], slot: "10:00 AM", reason: action.reason || "Health consultation" });
-    showToast("📥 Calendar event downloaded!");
-  };
+
 
   const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 

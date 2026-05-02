@@ -63,32 +63,26 @@ export function Avatar({ currentMessage, isTalking }) {
     }
   }, [currentMessage]);
 
-  /* ── Start audio & switch to Speech animation ── */
+  /* ── Start audio & switch to Speech animation with Greeting intro ── */
   useEffect(() => {
-    const audio = currentMessage?.audio;
-    if (audio) {
-      audio.play();
-      setAnimation("Speech");
+    if (isTalking) {
+      setAnimation("Greeting");
+      const timer = setTimeout(() => setAnimation("Speech"), 2000);
+      return () => clearTimeout(timer);
     } else {
-      setAnimation(isTalking ? "Speech" : "Idle");
+      setAnimation("Idle");
     }
-  }, [playAudio, isTalking]);
+  }, [isTalking]);
 
   /* ── Audio-synced lip-sync (from reference repo) ── */
   useFrame(() => {
     const audio = currentMessage?.audio;
     const lipsync = currentMessage?.lipSync;
 
-    if (!audio || !lipsync) {
-      if (!isTalking) setAnimation("Idle");
-      return;
-    }
+    if (!audio || !lipsync) return;
 
     const currentAudioTime = audio.currentTime;
-    if (audio.paused || audio.ended) {
-      setAnimation("Idle");
-      return;
-    }
+    if (audio.paused || audio.ended) return;
 
     // Reset all visemes with smooth lerp
     Object.values(corresponding).forEach((value) => {
@@ -148,6 +142,79 @@ export function Avatar({ currentMessage, isTalking }) {
     }
   });
 
+  /* ── Robust bone finder ── */
+  const findBone = (name) => {
+    if (!group.current) return null;
+    let found = null;
+    group.current.traverse((obj) => {
+      if (obj.isBone && (obj.name === name || obj.name === `mixamorig${name}`)) {
+        found = obj;
+      }
+    });
+    return found;
+  };
+
+  /* ── Procedural Posture & Gestures (Natural speaking) ── */
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (!group.current) return;
+
+    // Smooth head tracking
+    const head = findBone("Head");
+    if (head) {
+      const target = new THREE.Vector3().copy(state.camera.position);
+      target.y = THREE.MathUtils.lerp(target.y, head.getWorldPosition(new THREE.Vector3()).y, 0.5);
+      const localTarget = head.parent.worldToLocal(target);
+      head.lookAt(localTarget);
+      head.rotation.x = Math.max(-0.2, Math.min(0.2, head.rotation.x));
+      head.rotation.y = Math.max(-0.5, Math.min(0.5, head.rotation.y));
+    }
+
+    // Natural body sway (Breathing & Speaking posture)
+    const spine = findBone("Spine2");
+    if (spine) {
+      spine.rotation.x = Math.sin(t * 1.2) * 0.02 + (isTalking ? Math.sin(t * 4) * 0.01 : 0);
+      spine.rotation.y = Math.sin(t * 0.8) * 0.02;
+    }
+
+    // Conversational arm gestures
+    const lArm = findBone("LeftArm");
+    const rArm = findBone("RightArm");
+    const lForearm = findBone("LeftForeArm");
+    const rForearm = findBone("RightForeArm");
+    const lShoulder = findBone("LeftShoulder");
+    const rShoulder = findBone("RightShoulder");
+
+    if (lArm && rArm) {
+      // Eliminate the rigid A-pose by forcing arms down
+      const baseLz = -1.4;
+      const baseRz = 1.4;
+      const baseLx = 0.2;
+      const baseRx = 0.2;
+
+      if (isTalking) {
+        // Conversational hand talking
+        lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, baseLz + 0.3 + Math.sin(t * 2.5) * 0.15, 0.08);
+        rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, baseRz - 0.3 + Math.sin(t * 2.7) * 0.15, 0.08);
+        
+        lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, baseLx + 0.4 + Math.sin(t * 2) * 0.1, 0.08);
+        rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, baseRx + 0.4 + Math.sin(t * 2.2) * 0.1, 0.08);
+
+        if (lForearm) lForearm.rotation.y = THREE.MathUtils.lerp(lForearm.rotation.y, 0.8 + Math.sin(t * 3) * 0.4, 0.08);
+        if (rForearm) rForearm.rotation.y = THREE.MathUtils.lerp(rForearm.rotation.y, -0.8 + Math.sin(t * 3.2) * 0.4, 0.08);
+      } else {
+        // Relaxed idle posture
+        lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, baseLz, 0.05);
+        rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, baseRz, 0.05);
+        lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, baseLx, 0.05);
+        rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, baseRx, 0.05);
+        
+        if (lForearm) lForearm.rotation.y = THREE.MathUtils.lerp(lForearm.rotation.y, 0.2, 0.05);
+        if (rForearm) rForearm.rotation.y = THREE.MathUtils.lerp(rForearm.rotation.y, -0.2, 0.05);
+      }
+    }
+  });
+
   /* ── Fallback procedural lip-sync (no audio, just isTalking flag) ── */
   useFrame((state) => {
     if (currentMessage?.audio && !currentMessage.audio.ended) return; // audio lip-sync is active
@@ -179,14 +246,6 @@ export function Avatar({ currentMessage, isTalking }) {
       head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], intensity, 0.4);
     if (ti !== undefined)
       teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], intensity, 0.4);
-  });
-
-  /* ── Head follows camera ── */
-  useFrame((state) => {
-    if (group.current) {
-      const headBone = group.current.getObjectByName("Head");
-      if (headBone) headBone.lookAt(state.camera.position);
-    }
   });
 
   /* ── Idle blink ── */

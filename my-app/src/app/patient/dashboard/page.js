@@ -132,43 +132,7 @@ export default function PatientDashboard() {
     return matchSearch && matchSpec;
   });
 
-  const generateICS = (booking) => {
-    try {
-      const [year, month, day] = booking.date.split("-");
-      const [time, period] = booking.slot.split(" ");
-      let [hours, minutes] = time.split(":");
-      hours = parseInt(hours, 10);
-      if (period === "PM" && hours !== 12) hours += 12;
-      if (period === "AM" && hours === 12) hours = 0;
-      
-      const startDate = new Date(year, month - 1, day, hours, parseInt(minutes, 10));
-      const endDate = new Date(startDate.getTime() + 30 * 60000); // 30 min duration
 
-      const formatDate = (date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
-
-      const icsData = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "BEGIN:VEVENT",
-        `DTSTART:${formatDate(startDate)}`,
-        `DTEND:${formatDate(endDate)}`,
-        `SUMMARY:AmritCare Appointment - ${booking.doctor.name}`,
-        `DESCRIPTION:Consultation: ${booking.doctor.specialty}\\nFee: ${booking.doctor.fee}`,
-        "END:VEVENT",
-        "END:VCALENDAR"
-      ].join("\n");
-
-      const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
-      const link = document.createElement("a");
-      link.href = window.URL.createObjectURL(blob);
-      link.setAttribute("download", `Appointment_${booking.doctor.name.replace(/ /g, "_")}.ics`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error("Failed to generate calendar file", err);
-    }
-  };
 
   const handleConfirmBooking = async (booking) => {
     try {
@@ -190,8 +154,7 @@ export default function PatientDashboard() {
       if (res.ok) {
         setBookings(prev => [...prev, { id: data.booking._id, doctorName: booking.doctor.name, specialty: booking.doctor.specialty, date: booking.date, slot: booking.slot, fee: booking.doctor.fee }]);
         setBookingDoctor(null);
-        generateICS(booking);
-        setSuccessMsg(`Booked ${booking.doctor.name} on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}. Calendar event downloaded!`);
+        setSuccessMsg(`Booked ${booking.doctor.name} on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}.`);
         
         // Trigger WhatsApp Notification
         const message = `Hello ${booking.doctor.name},\n\n*New Appointment Booking*\nPatient: ${patient.name}\nDate: ${new Date(booking.date).toLocaleDateString("en-IN")}\nTime: ${booking.slot}\n\nPlease confirm this appointment.`;

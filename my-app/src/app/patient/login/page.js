@@ -7,8 +7,6 @@ import { useState } from "react";
 const AUTH_MODES = [
   { id: "password", label: "Password", icon: "🔒" },
   { id: "otp", label: "OTP", icon: "📱" },
-  { id: "biometric", label: "Biometric", icon: "👆" },
-  { id: "faceid", label: "Face ID", icon: "🤳" },
 ];
 
 export default function PatientLoginPage() {
@@ -179,27 +177,7 @@ export default function PatientLoginPage() {
               </>
             )}
 
-            {/* Biometric Mode */}
-            {mode === "biometric" && (
-              <div className="text-center py-8">
-                <div className="w-20 h-20 mx-auto rounded-full bg-[#D1FAE5] flex items-center justify-center mb-4 animate-pulse">
-                  <span className="text-3xl">👆</span>
-                </div>
-                <p className="text-sm font-medium text-gray-800">Place your finger on the sensor</p>
-                <p className="text-xs text-gray-500 mt-1">(Demo only — use Password login)</p>
-              </div>
-            )}
 
-            {/* Face ID Mode */}
-            {mode === "faceid" && (
-              <div className="text-center py-8">
-                <div className="w-20 h-20 mx-auto rounded-full bg-[#D1FAE5] flex items-center justify-center mb-4 animate-pulse">
-                  <span className="text-3xl">🤳</span>
-                </div>
-                <p className="text-sm font-medium text-gray-800">Position your face in frame</p>
-                <p className="text-xs text-gray-500 mt-1">(Demo only — use Password login)</p>
-              </div>
-            )}
 
             {/* Submit */}
             <button type="submit" disabled={loading} className="w-full bg-[#10B981] text-white py-3.5 rounded-xl font-bold hover:bg-[#059669] transition-all disabled:opacity-50 mt-4 shadow-lg shadow-[#10B981]/20">
@@ -209,7 +187,7 @@ export default function PatientLoginPage() {
                   Signing In...
                 </span>
               ) : (
-                mode === "password" ? "Sign In Securely" : mode === "otp" ? "Verify OTP" : "Authenticate"
+                mode === "password" ? "Sign In Securely" : "Verify OTP"
               )}
             </button>
           </form>

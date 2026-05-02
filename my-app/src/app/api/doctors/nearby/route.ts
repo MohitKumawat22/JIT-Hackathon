@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const MAPPLS_API_KEY = "smnqwhllvviswabgqruxhoplcqknivrdwxru";
+const MAPPLS_API_KEY = process.env.MAPPLS_API_KEY;
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
