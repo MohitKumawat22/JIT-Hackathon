@@ -95,7 +95,7 @@ export default function PatientRegisterPage() {
 
       // Save patient session
       sessionStorage.setItem("medconnect_patient", JSON.stringify(data.patient));
-      router.push("/patient/triage");
+      router.push("/patient/dashboard");
     } catch (err) {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -124,7 +124,7 @@ export default function PatientRegisterPage() {
               <span className="text-[#0a0f1a] text-xl font-bold">+</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">Create Account</h1>
-            <p className="text-sm text-text-muted">Join MedConnect — your health, simplified</p>
+            <p className="text-sm text-text-muted">Join AmritCare AI — your health, simplified</p>
           </div>
 
           {/* Error */}

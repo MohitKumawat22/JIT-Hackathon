@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0f1a;
-  --foreground: #e8edf5;
-  --primary: #00d4aa;
-  --primary-dark: #00b894;
-  --primary-glow: rgba(0, 212, 170, 0.15);
-  --secondary: #6c5ce7;
-  --accent: #00cec9;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-hover: rgba(255, 255, 255, 0.08);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(255, 255, 255, 0.15);
-  --text-muted: rgba(232, 237, 245, 0.55);
-  --text-secondary: rgba(232, 237, 245, 0.75);
-  --danger: #ff6b6b;
-  --warning: #feca57;
-  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
-  --glow-shadow: 0 0 40px rgba(0, 212, 170, 0.1), 0 0 80px rgba(0, 212, 170, 0.05);
+  --background: #ffffff;
+  --foreground: #1e293b;
+  --primary: #10B981;
+  --primary-dark: #059669;
+  --primary-glow: rgba(16, 185, 129, 0.15);
+  --secondary: #064E3B;
+  --accent: #6EE7B7;
+  --surface: #ffffff;
+  --surface-hover: #f0fdf4;
+  --border: #e2e8f0;
+  --border-hover: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-secondary: #64748b;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --glow-shadow: 0 0 40px rgba(16, 185, 129, 0.1), 0 0 80px rgba(16, 185, 129, 0.05);
 }
 
 @theme inline {
@@ -53,26 +53,21 @@ body {
 
 /* ─── Animated gradient background ─── */
 .gradient-bg {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.12), transparent),
-    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(108, 92, 231, 0.1), transparent),
-    radial-gradient(ellipse 50% 50% at 20% 80%, rgba(0, 206, 201, 0.08), transparent),
-    var(--background);
+  background: var(--background);
 }
 
-/* ─── Glass card ─── */
+/* ─── Glass card / White card ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
+  border-radius: 1.5rem;
 }
 
 .glass-hover:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-hover);
   border-color: var(--border-hover);
-  box-shadow: var(--card-shadow), var(--glow-shadow);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
 }
 
 /* ─── Floating orbs animation ─── */

@@ -62,7 +62,7 @@ export default function PatientLoginPage() {
 
         // Save session
         sessionStorage.setItem("medconnect_patient", JSON.stringify(data.patient));
-        router.push("/patient/triage");
+        router.push("/patient/dashboard");
       } catch (err) {
         setError("Network error. Please try again.");
         setLoading(false);
@@ -89,7 +89,7 @@ export default function PatientLoginPage() {
               <span className="text-[#0a0f1a] text-xl font-bold">+</span>
             </div>
             <h1 className="text-2xl font-bold mb-2">Patient Login</h1>
-            <p className="text-sm text-text-muted">Access your MedConnect portal</p>
+            <p className="text-sm text-text-muted">Access your AmritCare AI portal</p>
           </div>
 
           {/* Auth mode tabs */}

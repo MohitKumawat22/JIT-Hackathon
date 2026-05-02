@@ -2,7 +2,7 @@ import Link from "next/link";
 import TriageChat from "@/components/patient/TriageChat";
 
 export const metadata = {
-  title: "AI Health Triage — MedConnect",
+  title: "AI Health Triage — AmritCare AI",
   description:
     "Describe your symptoms and get AI-powered triage recommendations with multilingual support.",
 };

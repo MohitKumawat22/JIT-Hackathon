@@ -12,9 +12,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "MedConnect — Smart Healthcare Platform",
+  title: "AmritCare AI — Smart Healthcare Platform",
   description:
-    "A modern healthcare platform connecting patients and doctors with seamless multi-mode authentication.",
+    "AI-powered healthcare platform — find doctors, book appointments, and get home remedy recommendations.",
 };
 
 export default function RootLayout({ children }) {
