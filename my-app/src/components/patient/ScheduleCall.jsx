@@ -27,11 +27,20 @@ function formatDateTime(iso) {
 }
 
 /* ─── Mini Schedule Form ─────────────────────────────────────── */
+const RECURRENCE_OPTIONS = [
+  { value: "one-time", label: "One-Time", icon: "1️⃣" },
+  { value: "weekly",   label: "Weekly",   icon: "📆" },
+  { value: "monthly",  label: "Monthly",  icon: "🗓️" },
+];
+
 function ScheduleForm({ patientId, onScheduled }) {
-  const [datetime, setDatetime] = useState("");
-  const [notes, setNotes] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [datetime, setDatetime]     = useState("");
+  const [notes, setNotes]           = useState("");
+  const [phone, setPhone]           = useState("");
+  const [name, setName]             = useState("");
+  const [recurrence, setRecurrence] = useState("one-time");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
 
   const minDatetime = (() => {
     const d = new Date(Date.now() + 5 * 60 * 1000);
@@ -42,18 +51,25 @@ function ScheduleForm({ patientId, onScheduled }) {
     e.preventDefault();
     setError("");
     if (!datetime) return setError("Please select a date and time.");
+    if (!phone.trim()) return setError("Please enter a mobile number.");
 
     setLoading(true);
     try {
       const res = await fetch("/api/calls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, scheduledAt: new Date(datetime).toISOString(), notes }),
+        body: JSON.stringify({
+          patientId,
+          scheduledAt: new Date(datetime).toISOString(),
+          notes,
+          recurrence,
+          overridePhone: phone.trim().startsWith("+") ? phone.trim() : `+91${phone.trim()}`,
+          overrideName: name.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to schedule call.");
-      setDatetime("");
-      setNotes("");
+      setDatetime(""); setNotes(""); setPhone(""); setName(""); setRecurrence("one-time");
       onScheduled(data.call);
     } catch (err) {
       setError(err.message);
@@ -64,9 +80,38 @@ function ScheduleForm({ patientId, onScheduled }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Row: Name + Phone */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            👤 Patient Name (optional)
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Rahul Sharma"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 bg-gray-50"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            📱 Mobile Number <span className="text-red-400">*</span>
+          </label>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+91 9XXXXXXXXX"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 bg-gray-50"
+          />
+        </div>
+      </div>
+
+      {/* Date & Time */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
-          📅 When should we call you?
+          📅 When should we call?
         </label>
         <input
           type="datetime-local"
@@ -77,6 +122,35 @@ function ScheduleForm({ patientId, onScheduled }) {
         />
       </div>
 
+      {/* Recurrence */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          🔁 Repeat
+        </label>
+        <div className="flex gap-2">
+          {RECURRENCE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setRecurrence(opt.value)}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                recurrence === opt.value
+                  ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-blue-400 hover:text-blue-600"
+              }`}
+            >
+              {opt.icon} {opt.label}
+            </button>
+          ))}
+        </div>
+        {recurrence !== "one-time" && (
+          <p className="text-xs text-blue-500 mt-1.5 pl-1">
+            ↻ AmritCare will auto-schedule the next {recurrence} call after each one completes.
+          </p>
+        )}
+      </div>
+
+      {/* Notes */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           📝 Notes / Symptoms (optional)
@@ -164,7 +238,15 @@ function CallCard({ call, onCancel }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-lg">📞</span>
-              <span className="text-sm font-semibold text-gray-800">AI Health Call</span>
+              <span className="text-sm font-semibold text-gray-800">
+                {call.overrideName ? call.overrideName : "AI Health Call"}
+              </span>
+              {/* Recurrence badge */}
+              {call.recurrence && call.recurrence !== "one-time" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600 border border-purple-200">
+                  🔁 {call.recurrence === "weekly" ? "Weekly" : "Monthly"}
+                </span>
+              )}
               {/* Status badge */}
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${st.bg} ${st.color} border ${st.border}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
@@ -174,6 +256,9 @@ function CallCard({ call, onCancel }) {
             <p className="text-xs text-gray-500">
               🗓 {formatDateTime(call.scheduledAt)}
             </p>
+            {call.overridePhone && (
+              <p className="text-xs text-gray-400 mt-0.5">📱 {call.overridePhone}</p>
+            )}
             {call.notes && (
               <p className="text-xs text-gray-400 mt-1 truncate">💬 {call.notes}</p>
             )}

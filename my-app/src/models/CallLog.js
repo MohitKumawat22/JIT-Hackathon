@@ -50,6 +50,19 @@ const CallLogSchema = new mongoose.Schema(
     },
     notes: { type: String, default: "" },
 
+    // ── Scheduling ────────────────────────────────────────────────
+    recurrence: {
+      type: String,
+      enum: ["one-time", "weekly", "monthly"],
+      default: "one-time",
+    },
+    // Optional override: if set, the worker calls this number instead of the patient's stored phone
+    overridePhone: { type: String, default: null },
+    // Display name used in the greeting / UI (falls back to patient firstName)
+    overrideName: { type: String, default: null },
+    // For recurring calls — the root/parent call that spawned this one
+    parentCallId: { type: mongoose.Schema.Types.ObjectId, ref: "CallLog", default: null },
+
     // ── Post-Call Memory ─────────────────────────────────────────
     memory: {
       symptoms: { type: [String], default: [] },

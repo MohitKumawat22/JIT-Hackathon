@@ -32,11 +32,18 @@ export async function GET(request) {
 }
 
 // POST /api/calls — schedule a new call
-// Body: { patientId, scheduledAt, notes? }
+// Body: { patientId, scheduledAt, notes?, recurrence?, overridePhone?, overrideName? }
 export async function POST(request) {
   try {
     await connectDB();
-    const { patientId, scheduledAt, notes } = await request.json();
+    const {
+      patientId,
+      scheduledAt,
+      notes,
+      recurrence,
+      overridePhone,
+      overrideName,
+    } = await request.json();
 
     if (!patientId || !scheduledAt) {
       return NextResponse.json(
@@ -58,6 +65,9 @@ export async function POST(request) {
       scheduledAt: scheduled,
       notes: notes || "",
       status: "scheduled",
+      recurrence: recurrence || "one-time",
+      overridePhone: overridePhone || null,
+      overrideName: overrideName || null,
     });
 
     return NextResponse.json({ call: callLog }, { status: 201 });

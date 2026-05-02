@@ -267,8 +267,8 @@ async function processDueCalls() {
       // 3. Save context + greeting
       await CallLog.findByIdAndUpdate(call._id, { context, greeting });
 
-      // 4. Get patient phone
-      const phoneNumber = context.patient?.phone;
+      // 4. Get patient phone — prefer overridePhone set by the scheduler UI
+      const phoneNumber = call.overridePhone || context.patient?.phone;
       if (!phoneNumber) {
         console.error(`  ✗ Patient ${call.patientId} has no phone number`);
         await CallLog.findByIdAndUpdate(call._id, { status: "failed" });
@@ -302,6 +302,24 @@ async function processDueCalls() {
 
       await CallLog.findByIdAndUpdate(call._id, { callSid: twilioCall.sid });
       console.log(`  ✓ Call fired: SID ${twilioCall.sid} → ${phoneNumber}`);
+
+      // 6. Auto-schedule next occurrence for recurring calls
+      if (call.recurrence && call.recurrence !== "one-time") {
+        const nextDate = new Date(call.scheduledAt);
+        if (call.recurrence === "weekly") nextDate.setDate(nextDate.getDate() + 7);
+        if (call.recurrence === "monthly") nextDate.setDate(nextDate.getDate() + 30);
+        await CallLog.create({
+          patientId: call.patientId,
+          scheduledAt: nextDate,
+          notes: call.notes,
+          status: "scheduled",
+          recurrence: call.recurrence,
+          overridePhone: call.overridePhone,
+          overrideName: call.overrideName,
+          parentCallId: call.parentCallId || call._id,
+        });
+        console.log(`  ↻ Next ${call.recurrence} call auto-scheduled for ${nextDate.toLocaleString()}`);
+      }
     } catch (err) {
       console.error(`  ✗ Failed processing call ${call._id}:`, err.message);
       // ── Retry on transient failures ────────────────────────────
