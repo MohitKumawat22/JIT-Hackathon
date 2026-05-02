@@ -54,53 +54,51 @@ export function Avatar({ currentMessage, isTalking }) {
     return () => actions[animation]?.fadeOut(0.5);
   }, [animation, actions]);
 
-  /* ── Audio-driven state ── */
-  const [playAudio, setPlayAudio] = useState(false);
+  /* ── Start audio & switch to Speech animation with Greeting intro ── */
   useEffect(() => {
-    if (currentMessage?.audio && !currentMessage.audio.ended) {
-      setPlayAudio(true);
+    if (isTalking) {
+      setAnimation("Greeting");
+      const timer = setTimeout(() => setAnimation("Speech"), 2000);
+      return () => clearTimeout(timer);
     } else {
-      setPlayAudio(false);
+      setAnimation("Idle");
     }
-  }, [currentMessage]);
+  }, [isTalking]);
 
-  /* ── Start audio & switch to Speech animation ── */
-  useEffect(() => {
-    const audio = currentMessage?.audio;
-    if (audio) {
-      audio.play();
-      setAnimation("Speech");
-    } else {
-      setAnimation(isTalking ? "Speech" : "Idle");
-    }
-  }, [playAudio, isTalking]);
+  /* ── Robust bone finder ── */
+  const findBone = (name) => {
+    if (!group.current) return null;
+    let found = null;
+    group.current.traverse((obj) => {
+      if (obj.isBone && (obj.name === name || obj.name === `mixamorig${name}`)) {
+        found = obj;
+      }
+    });
+    return found;
+  };
 
   /* ── Lip-Sync and Head Follow ── */
   useFrame((state) => {
-    const audio = currentMessage?.audio;
-    const lipsync = currentMessage?.lipSync;
     const head = nodes.Wolf3D_Head;
     const teeth = nodes.Wolf3D_Teeth;
+    const audio = currentMessage?.audio;
+    const lipsync = currentMessage?.lipSync;
+    const t = state.clock.elapsedTime;
 
     if (!head || !head.morphTargetDictionary) return;
 
-    const t = state.clock.elapsedTime;
-    
-    // 1. Head Follow (Lerped for smoothness)
-    if (group.current) {
-      const headBone = group.current.getObjectByName("Head") || group.current.getObjectByName("mixamorigHead");
-      if (headBone) {
-        const targetRotation = new THREE.Quaternion();
-        const currentRotation = headBone.quaternion.clone();
-        headBone.lookAt(state.camera.position);
-        targetRotation.copy(headBone.quaternion);
-        headBone.quaternion.copy(currentRotation);
-        headBone.quaternion.slerp(targetRotation, 0.1);
-      }
+    // 1. Head Follow (Smooth Tracking)
+    const headBone = findBone("Head");
+    if (headBone) {
+      const targetRotation = new THREE.Quaternion();
+      const currentRotation = headBone.quaternion.clone();
+      headBone.lookAt(state.camera.position);
+      targetRotation.copy(headBone.quaternion);
+      headBone.quaternion.copy(currentRotation);
+      headBone.quaternion.slerp(targetRotation, 0.1);
     }
 
-    // 2. Lip Sync
-    // Reset visemes
+    // 2. Lip Sync Reset
     Object.values(corresponding).forEach((v) => {
       const hi = head.morphTargetDictionary[v];
       const ti = teeth?.morphTargetDictionary?.[v];
@@ -108,8 +106,8 @@ export function Avatar({ currentMessage, isTalking }) {
       if (ti !== undefined) teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], 0, 0.3);
     });
 
+    // 3. Audio or Procedural Lip Sync
     if (audio && lipsync && !audio.paused && !audio.ended) {
-      // Precise Audio Lip Sync
       const currentAudioTime = audio.currentTime;
       for (let i = 0; i < lipsync.mouthCues.length; i++) {
         const cue = lipsync.mouthCues[i];
@@ -123,7 +121,6 @@ export function Avatar({ currentMessage, isTalking }) {
         }
       }
     } else if (isTalking) {
-      // Fallback Procedural Lip Sync
       const cycle = Math.floor(t * 10) % 8;
       const cueLetters = ["D", "E", "F", "C", "A", "G", "H", "B"];
       const activeViseme = corresponding[cueLetters[cycle]];
@@ -132,6 +129,48 @@ export function Avatar({ currentMessage, isTalking }) {
       const ti = teeth?.morphTargetDictionary?.[activeViseme];
       if (hi !== undefined) head.morphTargetInfluences[hi] = THREE.MathUtils.lerp(head.morphTargetInfluences[hi], intensity, 0.8);
       if (ti !== undefined) teeth.morphTargetInfluences[ti] = THREE.MathUtils.lerp(teeth.morphTargetInfluences[ti], intensity, 0.8);
+    }
+  });
+
+  /* ── Procedural Posture & Gestures ── */
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    if (!group.current) return;
+
+    // Spine Sway
+    const spine = findBone("Spine2");
+    if (spine) {
+      spine.rotation.x = Math.sin(t * 1.2) * 0.02 + (isTalking ? Math.sin(t * 4) * 0.01 : 0);
+      spine.rotation.y = Math.sin(t * 0.8) * 0.02;
+    }
+
+    // Arm gestures
+    const lArm = findBone("LeftArm");
+    const rArm = findBone("RightArm");
+    const lForearm = findBone("LeftForeArm");
+    const rForearm = findBone("RightForeArm");
+
+    if (lArm && rArm) {
+      const baseLz = -1.4;
+      const baseRz = 1.4;
+      const baseLx = 0.2;
+      const baseRx = 0.2;
+
+      if (isTalking) {
+        lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, baseLz + 0.3 + Math.sin(t * 2.5) * 0.15, 0.08);
+        rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, baseRz - 0.3 + Math.sin(t * 2.7) * 0.15, 0.08);
+        lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, baseLx + 0.4 + Math.sin(t * 2) * 0.1, 0.08);
+        rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, baseRx + 0.4 + Math.sin(t * 2.2) * 0.1, 0.08);
+        if (lForearm) lForearm.rotation.y = THREE.MathUtils.lerp(lForearm.rotation.y, 0.8 + Math.sin(t * 3) * 0.4, 0.08);
+        if (rForearm) rForearm.rotation.y = THREE.MathUtils.lerp(rForearm.rotation.y, -0.8 + Math.sin(t * 3.2) * 0.4, 0.08);
+      } else {
+        lArm.rotation.z = THREE.MathUtils.lerp(lArm.rotation.z, baseLz, 0.05);
+        rArm.rotation.z = THREE.MathUtils.lerp(rArm.rotation.z, baseRz, 0.05);
+        lArm.rotation.x = THREE.MathUtils.lerp(lArm.rotation.x, baseLx, 0.05);
+        rArm.rotation.x = THREE.MathUtils.lerp(rArm.rotation.x, baseRx, 0.05);
+        if (lForearm) lForearm.rotation.y = THREE.MathUtils.lerp(lForearm.rotation.y, 0.2, 0.05);
+        if (rForearm) rForearm.rotation.y = THREE.MathUtils.lerp(rForearm.rotation.y, -0.2, 0.05);
+      }
     }
   });
 
