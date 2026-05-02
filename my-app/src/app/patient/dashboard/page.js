@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
+import ScheduleCall from "@/components/patient/ScheduleCall";
 
 /* ─── Dummy doctor data (replace with API later) ─── */
 const DOCTORS = [
@@ -326,6 +327,11 @@ export default function PatientDashboard() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* AI Calling Assistant */}
+        <div className="mb-8">
+          <ScheduleCall patientId={patient.id} />
         </div>
 
         {/* Upcoming Bookings */}
