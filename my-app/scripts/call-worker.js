@@ -181,8 +181,9 @@ async function fetchPatientContext(patientId) {
 }
 
 // ─── Greeting generator ───────────────────────────────────────
-async function generateGreeting(context, notes) {
+async function generateGreeting(context, notes, overrideName) {
   const { patient, lastTriage, pastCallSummaries, pastMemories } = context;
+  const displayName = overrideName || patient?.firstName || "there";
 
   const systemPrompt = `You are AmritCare, a friendly neighborhood family doctor calling for a health checkup.
 You are warm, knowledgeable, and approachable — like a doctor who lives in the same colony and genuinely knows and cares about their patients.
@@ -201,7 +202,7 @@ No notes: "Ravi, AmritCare ki taraf se call aa raha hai — aapka routine checku
 Patient noted headache: "Priya, AmritCare se call hai — aapne sir dard mention kiya tha, toh socha aapse baat karte hain. Aaj kaisa feel ho raha hai aapko?"
 Patient noted tiredness: "Arjun, AmritCare ki taraf se checkup call hai. Aapne thakaan mention ki thi — abhi kaisa chal raha hai, better hai kuch?"`;
 
-  let userContent = `Patient: ${patient?.firstName || "there"}, Age: ${patient?.age || "unknown"}, Blood: ${patient?.blood || "unknown"}.`;
+  let userContent = `Patient: ${displayName}, Age: ${patient?.age || "unknown"}, Blood: ${patient?.blood || "unknown"}.`;
 
   if (lastTriage) {
     userContent += ` Last symptoms: ${(lastTriage.symptoms || []).join(", ") || "none"}. Severity: ${lastTriage.severity}.`;
@@ -234,7 +235,7 @@ Patient noted tiredness: "Arjun, AmritCare ki taraf se checkup call hai. Aapne t
     );
   } catch (e) {
     console.error("Greeting generation failed:", e);
-    return `${patient?.firstName || ""}, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain?`;
+    return `${displayName}, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain?`;
   }
 }
 
@@ -261,8 +262,8 @@ async function processDueCalls() {
       // 1. Fetch full context
       const context = await fetchPatientContext(call.patientId);
 
-      // 2. Generate greeting
-      const greeting = await generateGreeting(context, call.notes);
+      // 2. Generate greeting (use overrideName from scheduler form if set)
+      const greeting = await generateGreeting(context, call.notes, call.overrideName);
 
       // 3. Save context + greeting
       await CallLog.findByIdAndUpdate(call._id, { context, greeting });
