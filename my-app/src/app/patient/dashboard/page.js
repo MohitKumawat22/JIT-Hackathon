@@ -273,6 +273,7 @@ export default function PatientDashboard() {
   const [chatOpen, setChatOpen] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [successMsg, setSuccessMsg] = useState("");
+  const [doctorsList, setDoctorsList] = useState(DOCTORS);
 
   useEffect(() => {
     const stored = JSON.parse(sessionStorage.getItem("medconnect_patient") || "null");
@@ -280,7 +281,58 @@ export default function PatientDashboard() {
     setPatient(stored);
   }, [router]);
 
-  const filteredDoctors = DOCTORS.filter((d) => {
+  useEffect(() => {
+    const fetchDoctors = async (lat, lng) => {
+      try {
+        const res = await fetch(`/api/doctors/nearby?lat=${lat}&lng=${lng}`);
+        const data = await res.json();
+        if (data.doctors && data.doctors.length > 0) {
+          setDoctorsList(data.doctors);
+        }
+      } catch (err) {
+        console.error("Failed to fetch nearby doctors:", err);
+      }
+    };
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => fetchDoctors(position.coords.latitude, position.coords.longitude),
+        (err) => {
+          console.warn("Location permission denied or error:", err.message);
+          fetchDoctors("28.6139", "77.2090");
+        },
+        { timeout: 5000 }
+      );
+    } else {
+      fetchDoctors("28.6139", "77.2090");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!patient?.id) return;
+    const fetchBookings = async () => {
+      try {
+        const res = await fetch(`/api/bookings?patientId=${patient.id}`);
+        const data = await res.json();
+        if (data.bookings) {
+          const formatted = data.bookings.map(b => ({
+            id: b._id,
+            doctorName: b.facilityName,
+            specialty: b.department,
+            date: b.scheduledDate || b.createdAt,
+            slot: b.scheduledSlot || "",
+            fee: b.fee || ""
+          }));
+          setBookings(formatted);
+        }
+      } catch (err) {
+        console.error("Failed to fetch bookings:", err);
+      }
+    };
+    fetchBookings();
+  }, [patient?.id]);
+
+  const filteredDoctors = doctorsList.filter((d) => {
     const matchSearch = d.name.toLowerCase().includes(search.toLowerCase()) || d.specialty.toLowerCase().includes(search.toLowerCase());
     const matchSpec = specialty === "All" || d.specialty === specialty;
     return matchSearch && matchSpec;
@@ -324,17 +376,42 @@ export default function PatientDashboard() {
     }
   };
 
-  const handleConfirmBooking = (booking) => {
-    setBookings(prev => [...prev, { id: Date.now(), doctorName: booking.doctor.name, specialty: booking.doctor.specialty, date: booking.date, slot: booking.slot, fee: booking.doctor.fee }]);
-    setBookingDoctor(null);
-    generateICS(booking);
-    setSuccessMsg(`Booked ${booking.doctor.name} on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}. Calendar event downloaded!`);
-    setTimeout(() => setSuccessMsg(""), 6000);
+  const handleConfirmBooking = async (booking) => {
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          facilityName: booking.doctor.name,
+          department: booking.doctor.specialty,
+          scheduledDate: booking.date,
+          scheduledSlot: booking.slot,
+          fee: booking.doctor.fee,
+          status: "upcoming"
+        })
+      });
+      const data = await res.json();
+      
+      if (res.ok) {
+        setBookings(prev => [...prev, { id: data.booking._id, doctorName: booking.doctor.name, specialty: booking.doctor.specialty, date: booking.date, slot: booking.slot, fee: booking.doctor.fee }]);
+        setBookingDoctor(null);
+        generateICS(booking);
+        setSuccessMsg(`Booked ${booking.doctor.name} on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}. Calendar event downloaded!`);
+        setTimeout(() => setSuccessMsg(""), 6000);
+      } else {
+        console.error("Booking failed:", data.error);
+        alert("Failed to confirm booking.");
+      }
+    } catch (err) {
+      console.error("Booking request error:", err);
+      alert("Error confirming booking.");
+    }
   };
 
   const handleChatBookRequest = (specialtyName) => {
     // Find the best matching doctor
-    const match = DOCTORS.find(d => d.specialty.toLowerCase().includes(specialtyName.toLowerCase()) && d.available) || DOCTORS.find(d => d.available);
+    const match = doctorsList.find(d => d.specialty.toLowerCase().includes(specialtyName.toLowerCase()) && d.available) || doctorsList.find(d => d.available);
     if (match) {
       setBookingDoctor(match);
       setChatOpen(false); // Optionally close chat to show the modal clearly
@@ -394,7 +471,7 @@ export default function PatientDashboard() {
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center">🩺</div>
-              <div><p className="text-2xl font-bold text-gray-800">{DOCTORS.filter(d => d.available).length}</p><p className="text-xs text-gray-500">Doctors Available</p></div>
+              <div><p className="text-2xl font-bold text-gray-800">{doctorsList.filter(d => d.available).length}</p><p className="text-xs text-gray-500">Doctors Available</p></div>
             </div>
           </div>
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
@@ -459,7 +536,8 @@ export default function PatientDashboard() {
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-gray-800 truncate">{doctor.name}</h3>
-                  <p className="text-sm text-gray-500">{doctor.specialty}</p>
+                  <p className="text-sm text-gray-500 truncate">{doctor.specialty}</p>
+                  {doctor.address && <p className="text-xs text-gray-400 truncate mt-0.5">{doctor.address}</p>}
                 </div>
               </div>
               <div className="flex items-center gap-4 mb-4 text-sm">

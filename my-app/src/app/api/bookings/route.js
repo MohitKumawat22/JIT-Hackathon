@@ -36,7 +36,7 @@ export async function POST(request) {
     await connectDB();
     const body = await request.json();
 
-    const { patientId, facilityName, address, lat, lng, rating, placeId, department, status, notes } = body;
+    const { patientId, facilityName, address, lat, lng, rating, placeId, department, status, notes, scheduledDate, scheduledSlot, fee } = body;
 
     if (!patientId || !facilityName) {
       return NextResponse.json(
@@ -56,6 +56,9 @@ export async function POST(request) {
       department: department || "General",
       status: status || "upcoming",
       notes: notes || "",
+      scheduledDate: scheduledDate || null,
+      scheduledSlot: scheduledSlot || "",
+      fee: fee || 0,
     });
 
     return NextResponse.json(

@@ -12,6 +12,9 @@ const BookingSchema = new mongoose.Schema(
     department: { type: String, default: "General" },
     status: { type: String, enum: ["upcoming", "completed", "cancelled"], default: "upcoming" },
     notes: { type: String },
+    scheduledDate: { type: String },
+    scheduledSlot: { type: String },
+    fee: { type: String },
   },
   { timestamps: true }
 );

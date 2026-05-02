@@ -82,46 +82,40 @@ export default function LocatePage() {
 
   // Get user location & fetch facilities
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLoadState("error");
-      setErrorMsg("Geolocation is not supported by your browser.");
-      return;
-    }
+    const fetchFacilities = async (lat, lng) => {
+      setUserLocation({ lat, lng });
+      setLoadState("loading");
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setUserLocation({ lat: latitude, lng: longitude });
-        setLoadState("loading");
+      try {
+        const res = await fetch(`/api/places?lat=${lat}&lng=${lng}&radius=5000&type=hospital`);
+        const data = await res.json();
 
-        try {
-          const res = await fetch(`/api/places?lat=${latitude}&lng=${longitude}&radius=5000&type=hospital`);
-          const data = await res.json();
-
-          if (data.facilities && data.facilities.length > 0) {
-            setFacilities(data.facilities);
-            setDataSource(data.source || "unknown");
-          } else {
-            setFacilities([]);
-          }
-          setLoadState("ready");
-        } catch (err) {
-          console.error("Places fetch error:", err);
-          setLoadState("error");
-          setErrorMsg("Failed to fetch nearby facilities.");
+        if (data.facilities && data.facilities.length > 0) {
+          setFacilities(data.facilities);
+          setDataSource(data.source || "unknown");
+        } else {
+          setFacilities([]);
         }
-      },
-      (err) => {
-        console.error("Geolocation error:", err);
+        setLoadState("ready");
+      } catch (err) {
+        console.error("Places fetch error:", err);
         setLoadState("error");
-        setErrorMsg(
-          err.code === 1
-            ? "Location access denied. Please allow location access and refresh."
-            : "Unable to determine your location. Please try again."
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+        setErrorMsg("Failed to fetch nearby facilities.");
+      }
+    };
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => fetchFacilities(pos.coords.latitude, pos.coords.longitude),
+        (err) => {
+          console.warn("Geolocation error or denied. Falling back to default coordinates.", err);
+          fetchFacilities(28.6139, 77.2090); // Fallback to Central Delhi
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    } else {
+      fetchFacilities(28.6139, 77.2090);
+    }
   }, []);
 
   // Filter + sort

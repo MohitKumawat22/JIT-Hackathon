@@ -14,7 +14,22 @@ STRICT RULES:
 7. If the user describes an emergency (chest pain, difficulty breathing, severe bleeding), immediately advise them to call emergency services or visit the nearest hospital.
 8. If the patient has shared medical reports, use that data to give more personalized and accurate advice.
 9. Remember and reference previous conversations when relevant to provide continuity of care.
-10. IMPORTANT: If the user explicitly asks to book an appointment, or agrees to see a doctor, YOU MUST append exactly this string at the very end of your response: [BOOK_APPOINTMENT:Specialty_Name] (replace Specialty_Name with the best matching specialty like Cardiologist, Neurologist, Dermatologist, Pediatrician, Orthopedic, or General Physician).
+
+ACTION TAGS — You MUST append these tags at the very end of your response when appropriate:
+
+10. BOOK APPOINTMENT: If the user explicitly asks to book an appointment, or agrees to see a doctor, append:
+    [BOOK_APPOINTMENT:Specialty_Name]
+    (replace Specialty_Name with the best matching specialty like Cardiologist, Neurologist, Dermatologist, Pediatrician, Orthopedic, or General Physician)
+
+11. SCHEDULE CALL: If the user asks to schedule a call with a doctor, or wants a follow-up call, or says "call me", append:
+    [SCHEDULE_CALL:reason]
+    (replace reason with a brief reason like "headache follow-up" or "chest pain consultation")
+
+12. ADD TO CALENDAR: After you suggest booking or scheduling, also append:
+    [ADD_CALENDAR:Specialty_Name:reason]
+    so the user can add the event to their calendar.
+
+You can combine multiple tags. For example if a user wants to book AND get a calendar reminder, include both tags.
 
 RESPONSE FORMAT:
 - Start with empathy ("I understand you're feeling...")
@@ -101,11 +116,13 @@ export async function POST(request) {
     }
 
     // Add current conversation messages
-    for (const msg of messages) {
-      chatMessages.push({
-        role: msg.role === "bot" ? "assistant" : "user",
-        content: msg.text,
-      });
+    if (Array.isArray(messages)) {
+      for (const msg of messages) {
+        chatMessages.push({
+          role: msg.role === "bot" || msg.role === "assistant" ? "assistant" : "user",
+          content: msg.text || msg.content || "",
+        });
+      }
     }
 
     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -135,11 +152,40 @@ export async function POST(request) {
     }
 
     const data = await res.json();
-    const reply =
+    let reply =
       data.choices?.[0]?.message?.content ||
       "I'm sorry, I couldn't generate a response. Please try again.";
 
-    return NextResponse.json({ reply });
+    // Parse action tags from the reply
+    const actions = [];
+
+    // Parse [BOOK_APPOINTMENT:Specialty]
+    const bookMatch = reply.match(/\[BOOK_APPOINTMENT:(.*?)\]/);
+    if (bookMatch) {
+      actions.push({ type: "book_appointment", specialty: bookMatch[1].trim() });
+      reply = reply.replace(bookMatch[0], "").trim();
+    }
+
+    // Parse [SCHEDULE_CALL:reason]
+    const callMatch = reply.match(/\[SCHEDULE_CALL:(.*?)\]/);
+    if (callMatch) {
+      actions.push({ type: "schedule_call", reason: callMatch[1].trim() });
+      reply = reply.replace(callMatch[0], "").trim();
+    }
+
+    // Parse [ADD_CALENDAR:specialty:reason]
+    const calMatch = reply.match(/\[ADD_CALENDAR:(.*?)\]/);
+    if (calMatch) {
+      const parts = calMatch[1].split(":");
+      actions.push({
+        type: "add_calendar",
+        specialty: parts[0]?.trim() || "General Physician",
+        reason: parts[1]?.trim() || "Health consultation",
+      });
+      reply = reply.replace(calMatch[0], "").trim();
+    }
+
+    return NextResponse.json({ reply, actions });
   } catch (error) {
     console.error("Chat API error:", error);
     return NextResponse.json(
