@@ -2,31 +2,23 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import CallLog from "@/models/CallLog";
 
-// ─── Severity keyword detection ────────────────────────────────
+// ─── Severity keyword detection ─────────────────────────────────────────────
 const SEVERITY_KEYWORDS = {
   critical: [
-    // English
     "chest pain", "can't breathe", "cannot breathe", "heart attack", "stroke", "unconscious", "emergency",
-    // Hinglish
-    "chest mein dard", "saans nahi aa raha", "saans nahi ata", "hosh nahi", "behosh", "dil ka dora"
+    "chest mein dard", "saans nahi aa raha", "saans nahi ata", "hosh nahi", "behosh", "bahut bura condition"
   ],
   high: [
-    // English
     "severe", "hospital", "ambulance", "dizzy", "vomiting", "very bad",
-    // Hinglish
-    "bahut bura lag raha", "bahut bura lagta", "chakkar", "ulti", "bahut dard", "bahut takleef"
+    "bahut bura lag raha", "chakkar aa raha", "chakkar", "ulti ho rahi", "ulti", "bahut tez dard", "bahut takleef"
   ],
   moderate: [
-    // English
     "pain", "fever", "headache", "nausea", "tired", "weak",
-    // Hinglish
-    "dard", "bukhar", "sir dard", "thaka hua", "thakaan", "neend nahi", "kamzori", "ulta lagta"
+    "dard ho raha", "bukhar hai", "bukhar", "sir dard", "thaka hua", "thakaan", "neend nahi ho rahi", "neend nahi", "kamzori"
   ],
   low: [
-    // English
     "okay", "fine", "better", "good", "normal",
-    // Hinglish
-    "theek hoon", "better hoon", "sab theek hai", "achha lag raha", "bilkul theek", "theek hai"
+    "theek hoon", "better hoon", "sab theek hai", "achha lag raha", "improve hua", "bilkul theek"
   ],
 };
 
@@ -73,31 +65,47 @@ async function callGroq(messages, maxTokens = 80) {
 // Build mid-call system prompt using stored context
 function buildMidCallSystemPrompt(ctx) {
   const { patient, lastTriage, recentBookings, pastCallSummaries, pastMemories } = ctx || {};
+  const firstName = patient?.firstName || "aap";
 
-  let system = `You are AmritCare — a warm, caring health companion who calls patients like a concerned elder sibling (Didi/Bhaiya spirit).
+  let system = `You are AmritCare, a friendly neighborhood family doctor calling for a health checkup.
+You are warm, knowledgeable, and approachable — like a doctor who lives in the same colony and genuinely knows and cares about their patients.
 
-PERSONALITY:
-- Sound like a caring family member, NOT a clinical bot or doctor's assistant.
-- Use natural Hinglish — English sentences with simple Hindi phrases woven in naturally.
-  e.g. "Acha, toh aap bol rahe hain...", "Samajh sakti hoon...", "Tension mat lo...", "Yeh sun ke achha laga!"
-- Address the patient as Bhaiya or Didi, or by their first name warmly.
+PERSONALITY & LANGUAGE RULES:
+- Speak in true Hinglish — 50% English and 50% Hindi naturally mixed in every sentence.
+- Address the patient as ${firstName} with "aap" — never Bhaiya/Didi, never "tum" or "tu".
+- Use everyday Hindi words, not textbook formal Hindi.
+- Keep each sentence short — one idea per sentence.
+- Never use filler phrases like "Certainly!", "Of course!", "Great question!".
 
 RESPONSE RULES:
-- ALWAYS reply in 1-2 sentences max. Under 40 words. No exceptions.
-- Use active listening openers:
-  * "Acha, toh aap bol rahe hain..."
-  * "Samajh sakta/sakti hoon..."
-  * "Yeh sun ke thoda chinta hui..." (if they sound unwell)
-  * "Yeh sun ke bahut achha laga!" (if they sound well)
-- If patient sounds unwell: be warm FIRST, advice second.
-  e.g. "Yeh sun ke thoda chinta hui — shayad thoda rest karein aur paani peete rahein."
-- NEVER say "I recommend" or "you should" — say "shayad aap try kar sakte hain" or "agar ho sake toh...".
-- NEVER prescribe medicines, diagnose, or use clinical language.
+- Reply in 1-2 sentences only. Strictly under 40 words total. No exceptions.
+- Always acknowledge what the patient said before responding.
+- If unwell: show concern first ("yeh sun ke thoda fikr hui") then ask a follow-up question.
+- If fine: show relief ("yeh sun ke bahut achha laga") then ask one gentle follow-up.
+- NEVER say "I recommend" or "you should" — say "shayad aap try kar sakte hain" or "ek kaam karein".
+- NEVER diagnose. If symptoms are serious, guide towards seeing a doctor.
+- End with either a question OR a warm reassurance — never just stop mid-thought.
 - If emergency keywords (chest pain, saans nahi aa raha): immediately say to call emergency services.
-- Sound like a person on a phone call, not reading from a script.`;
+
+HINGLISH WORD BANK (use these naturally):
+- Concern: "yeh sun ke thoda fikr hui", "achha nahi laga yeh sun ke"
+- Relief: "yeh sun ke bahut achha laga", "bahut achhi baat hai"
+- Encouraging: "bilkul sahi kiya", "aap sahi direction mein hain"
+- Advice: "shayad aap try kar sakte hain", "ek kaam karein"
+- Acknowledging: "haan, samajh aa raha hai", "haan bilkul"
+- Follow-up: "aur batayein", "aur kuch feel ho raha hai?"
+- Wrap-up: "dhyan rakhein apna", "theek ho jaenge aap"
+
+FEW-SHOT EXAMPLES (match this exact style):
+Patient has headache → "Achha nahi laga yeh sun ke — sir dard kaafi time se hai ya aaj se shuru hua, ${firstName}?"
+Patient feels fine → "Yeh sun ke bahut achha laga! Neend aur khana theek se ho raha hai na aapka?"
+Patient has fever → "Haan, bukhar mein bahut mushkil hoti hai — temperature kitna hai aapka, check kiya?"
+Patient very tired → "Samajh aa raha hai, itni thakaan bahut uncomfortable hoti hai. Yeh thakaan kab se feel ho rahi hai aapko?"
+Patient worsening → "Yeh sun ke thoda fikr hui — ek kaam karein, kal doctor se zaroor milein, theek rehna bahut zaroori hai."
+Patient says goodbye → "Bilkul, dhyan rakhein apna ${firstName} — koi bhi problem ho toh AmritCare hamesha hai. Take care!"`;
 
   if (patient) {
-    system += `\n\nPatient info: ${patient.firstName} ${patient.lastName || ""}, Age: ${patient.age || "unknown"}, Blood Group: ${patient.blood || "unknown"}.`;
+    system += `\n\nPatient info: ${firstName} ${patient.lastName || ""}, Age: ${patient.age || "unknown"}, Blood Group: ${patient.blood || "unknown"}.`;
   }
   if (lastTriage) {
     system += `\nLast AI triage — Symptoms: ${(lastTriage.symptoms || []).join(", ")}. Severity: ${lastTriage.severity}.`;
@@ -108,14 +116,19 @@ RESPONSE RULES:
   if (pastCallSummaries?.length) {
     system += `\nPast call summaries: ${pastCallSummaries.map((c) => c.summary).join(" | ")}.`;
   }
-  // ── Inject structured memory from previous calls ──────────────────────
+  // ── Inject structured memory from previous calls ──────────────────────────
   if (pastMemories?.length) {
-    system += `\n\nPrevious call memories (most recent first):`;
+    system += `\n\nPrevious call history (use this to follow up naturally):`;
     pastMemories.forEach((m, i) => {
       const mem = m.memory || {};
       system += `\n- Call ${i + 1}: Symptoms: ${(mem.symptoms || []).join(", ") || "none"}. Mood: ${mem.mood || "unknown"}. Follow up on: ${(mem.followUpTopics || []).join(", ") || "none"}.`;
     });
-    system += `\nWeave these into the conversation naturally in Hinglish — like a caring sibling who remembers. e.g. "Bhaiya, pichli baar aapne sir dard mention kiya tha — woh ab kaisa hai?" Don't list them robotically.`;
+    system += `\n\nImportant memory rules:
+- Reference previous symptoms naturally — do not list them out loud robotically.
+- Weave follow-ups into conversation, don't ask them all at once.
+- If mood was low last time, be extra warm this call.
+- If symptoms have resolved, express genuine relief.
+- Example: "${firstName}, pichli baar aapne sir dard mention kiya tha — woh ab kaisa hai, better hua kya?"`;
   }
 
   return system;
@@ -242,10 +255,14 @@ export async function POST(request) {
               [
                 {
                   role: "system",
-                  content: `Summarize this health checkup call in 2-3 sentences, as if writing a warm note for a caring family member to read.
-Mention the key symptoms the patient described and their overall mood during the call.
-Write in simple, warm Hinglish — not clinical language. Sound human, not like a medical report.
-Example style: "Ravi Bhaiya ne aaj sir dard aur thakaan ki baat ki — kaafi dinon se yeh feel kar rahe hain. Unka mood thoda low tha lekin baat karte karte better laga."`,
+                  content: `Summarize this health checkup call in 2-3 sentences in natural Hinglish.
+Write it as a warm clinical note — like a family doctor writing a quick update that a caring family member could also understand.
+Mention: key symptoms the patient reported, their mood during the call, and whether they need follow-up.
+Keep it human, warm, and simple — not a medical report.
+
+Few-shot examples of the exact style to use:
+Example 1: "Ravi ne aaj sir dard aur thakaan ki baat ki — kaafi dinon se feel ho raha hai unhe. Call ke dauran mood thoda low tha lekin baat karte waqt better laga. Doctor se milna suggest kiya gaya hai agar symptoms kal bhi rahein."
+Example 2: "Priya bilkul theek hain — neend aur khana dono sahi chal raha hai. Koi specific symptoms nahi the is call mein, overall mood positive tha. Next checkup regularly schedule karna recommend kiya."`,
                 },
                 { role: "user", content: transcriptText },
               ],
@@ -314,7 +331,7 @@ Keep each item short and conversational. followUpTopics should sound like a cari
     if (!SpeechResult) {
       const greeting =
         callLog.greeting ||
-        `Namaste ${callLog.context?.patient?.firstName || "ji"}! Main AmritCare AI bol raha hoon. Aap ki tabiyat kaisi hai aaj?`;
+        `${patient?.firstName || ""}, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain, sab theek chal raha hai?`;
 
       return twiml(greeting, webhookUrl);
     }
@@ -338,7 +355,7 @@ Keep each item short and conversational. followUpTopics should sound like a cari
       });
     }
 
-    let aiReply = "Theek hai, samajh gaya. Apna khayal rakhein aur paani peete rahein. Aur kuch share karna chahenge?";
+    let aiReply = "Haan, samajh aa raha hai — aur kuch feel ho raha hai aapko, batayein?";
     try {
       aiReply = await callGroq(groqMessages, 80);
     } catch (e) {

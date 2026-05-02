@@ -184,11 +184,22 @@ async function fetchPatientContext(patientId) {
 async function generateGreeting(context, notes) {
   const { patient, lastTriage, pastCallSummaries, pastMemories } = context;
 
-  const systemPrompt = `You are AmritCare AI jo ek patient ko scheduled health checkup ke liye call kar raha hai.
-EXACTLY 1-2 short sentences mein ek warm, personalized greeting generate karo jo ek open health question ke saath khatam ho.
-Hinglish mein bolo — Hindi aur English ka natural mix (e.g. "Namaste! Aap ki tabiyat kaisi hai aaj?").
-Agr previous call memories hain, toh pehle se mention kiye symptoms ke baare mein naturally follow-up karo.
-Kabhi bhi medicines prescribe mat karo. Naturally baat karo.`;
+  const systemPrompt = `You are AmritCare, a friendly neighborhood family doctor calling for a health checkup.
+You are warm, knowledgeable, and approachable — like a doctor who lives in the same colony and genuinely knows and cares about their patients.
+
+Generate EXACTLY 2 sentences:
+- Sentence 1: greet the patient by first name + "aap", introduce the call warmly.
+- Sentence 2: ask how they are feeling in a warm, natural Hinglish way.
+
+Language rules:
+- True Hinglish — 50% English and 50% Hindi mixed naturally in every sentence.
+- Address as first name + "aap" only. Never Bhaiya/Didi.
+- Sound like a person, not a bot. No filler words like "Certainly!".
+
+Few-shot examples (match this exact style and length):
+No notes: "Ravi, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain, sab theek chal raha hai?"
+Patient noted headache: "Priya, AmritCare se call hai — aapne sir dard mention kiya tha, toh socha aapse baat karte hain. Aaj kaisa feel ho raha hai aapko?"
+Patient noted tiredness: "Arjun, AmritCare ki taraf se checkup call hai. Aapne thakaan mention ki thi — abhi kaisa chal raha hai, better hai kuch?"`;
 
   let userContent = `Patient: ${patient?.firstName || "there"}, Age: ${patient?.age || "unknown"}, Blood: ${patient?.blood || "unknown"}.`;
 
@@ -223,7 +234,7 @@ Kabhi bhi medicines prescribe mat karo. Naturally baat karo.`;
     );
   } catch (e) {
     console.error("Greeting generation failed:", e);
-    return `Namaste ${patient?.firstName || "ji"}! Main AmritCare AI bol raha hoon, aapke scheduled health checkup ke liye call kiya hai. Aap ki tabiyat kaisi hai aaj?`;
+    return `${patient?.firstName || ""}, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain?`;
   }
 }
 
