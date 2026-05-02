@@ -286,6 +286,14 @@ export default function TriageChat() {
     }
 
     generateICS({ doctorName: booking.doctor.name, specialty: booking.doctor.specialty, date: booking.date, slot: booking.slot, reason: "Health consultation" });
+    
+    // Trigger WhatsApp Notification
+    const patientName = JSON.parse(sessionStorage.getItem("medconnect_patient") || "{}").name || "Patient";
+    const message = `Hello ${booking.doctor.name},\n\n*New Appointment Booking*\nPatient: ${patientName}\nDate: ${new Date(booking.date).toLocaleDateString("en-IN")}\nTime: ${booking.slot}\n\nPlease confirm this appointment.`;
+    const hospitalPhone = booking.doctor.phone || "919999999999";
+    const whatsappUrl = `https://wa.me/${hospitalPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank");
+
     setMessages((prev) => [...prev, {
       role: "assistant",
       text: `✅ Appointment booked with ${booking.doctor.name} (${booking.doctor.specialty}) on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}.\n\n📥 Calendar event downloaded!`,

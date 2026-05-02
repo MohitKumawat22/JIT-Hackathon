@@ -132,26 +132,6 @@ export default function LocatePage() {
 
   const selected = facilities.find((f) => f.id === selectedId);
 
-  // Map pin positions — project lat/lng onto SVG viewport
-  const getMapBounds = useCallback(() => {
-    if (!userLocation || facilities.length === 0) {
-      return { latMin: 0, latMax: 1, lngMin: 0, lngMax: 1 };
-    }
-    const lats = [userLocation.lat, ...facilities.map((f) => f.lat)];
-    const lngs = [userLocation.lng, ...facilities.map((f) => f.lng)];
-    const pad = 0.005;
-    return {
-      latMin: Math.min(...lats) - pad,
-      latMax: Math.max(...lats) + pad,
-      lngMin: Math.min(...lngs) - pad,
-      lngMax: Math.max(...lngs) + pad,
-    };
-  }, [userLocation, facilities]);
-
-  const bounds = getMapBounds();
-  const toX = (lng) => 5 + ((lng - bounds.lngMin) / (bounds.lngMax - bounds.lngMin)) * 90;
-  const toY = (lat) => 5 + (1 - (lat - bounds.latMin) / (bounds.latMax - bounds.latMin)) * 90;
-
   const handleGetDirections = (facility, e) => {
     e.stopPropagation();
     saveBooking(facility);
@@ -162,9 +142,9 @@ export default function LocatePage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* ── Header ── */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-border">
+      <header className="px-6 py-4 flex items-center justify-between border-b border-border shrink-0">
         <Link href="/" className="flex items-center gap-2 no-underline">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -180,7 +160,7 @@ export default function LocatePage() {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col lg:flex-row">
+      <main className="flex-1 flex flex-col lg:flex-row min-h-0">
         {/* ── LEFT: Map ── */}
         <section className="lg:flex-1 relative min-h-[350px] lg:min-h-0 bg-[#0d1420] border-b lg:border-b-0 lg:border-r border-border">
           <div className="absolute inset-0 opacity-[0.04]" style={{
@@ -212,46 +192,18 @@ export default function LocatePage() {
             </div>
           )}
 
-          {/* Map SVG */}
-          {loadState === "ready" && (
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid meet">
-              <line x1="10" y1="35" x2="90" y2="35" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-              <line x1="10" y1="65" x2="90" y2="65" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-              <line x1="30" y1="10" x2="30" y2="90" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-              <line x1="60" y1="10" x2="60" y2="90" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-
-              {/* User location */}
-              {userLocation && (
-                <>
-                  <circle cx={toX(userLocation.lng)} cy={toY(userLocation.lat)} r="3" fill="#00d4aa" opacity="0.2">
-                    <animate attributeName="r" values="3;8;3" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                  <circle cx={toX(userLocation.lng)} cy={toY(userLocation.lat)} r="3" fill="#00d4aa" />
-                  <text x={toX(userLocation.lng)} y={toY(userLocation.lat) - 5} textAnchor="middle" fill="#00d4aa" fontSize="3" fontWeight="600">You</text>
-                </>
-              )}
-
-              {/* Facility pins */}
-              {facilities.map((f) => {
-                const isActive = selectedId === f.id;
-                const px = toX(f.lng);
-                const py = toY(f.lat);
-                return (
-                  <g key={f.id} onClick={() => setSelectedId(f.id === selectedId ? null : f.id)} className="cursor-pointer"
-                    style={{ transform: `translate(${px}px, ${py}px)` }}>
-                    <circle r="6" fill={isActive ? "#00d4aa" : "#6c5ce7"} opacity="0.3">
-                      <animate attributeName="r" values="6;12;6" dur="2s" repeatCount="indefinite" />
-                    </circle>
-                    <circle r="5" fill={isActive ? "#00d4aa" : "#6c5ce7"} stroke="#0a0f1a" strokeWidth="2" />
-                    {isActive && (
-                      <text y="-14" textAnchor="middle" fill="#e8edf5" fontSize="3" fontWeight="600" className="select-none">
-                        {f.name.split(" ")[0]}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
+          {/* Real Google Map */}
+          {loadState === "ready" && userLocation && (
+            <iframe
+              src={`https://maps.google.com/maps?q=${selected ? selected.lat : userLocation.lat},${selected ? selected.lng : userLocation.lng}&z=${selected ? 16 : 13}&output=embed`}
+              width="100%"
+              height="100%"
+              style={{ border: 0, filter: "invert(90%) hue-rotate(180deg)" }}
+              allowFullScreen=""
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              className="absolute inset-0 w-full h-full z-10"
+            ></iframe>
           )}
 
           {/* Map badge */}
@@ -283,7 +235,7 @@ export default function LocatePage() {
         </section>
 
         {/* ── RIGHT: Facility List ── */}
-        <section className="lg:w-[440px] xl:w-[480px] flex flex-col max-h-screen lg:max-h-none">
+        <section className="lg:w-[440px] xl:w-[480px] flex flex-col flex-1 min-h-0">
           {/* Search + Filters */}
           <div className="p-4 space-y-3 border-b border-border">
             <div className="relative">

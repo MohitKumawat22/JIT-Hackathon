@@ -398,6 +398,13 @@ export default function PatientDashboard() {
         setBookingDoctor(null);
         generateICS(booking);
         setSuccessMsg(`Booked ${booking.doctor.name} on ${new Date(booking.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })} at ${booking.slot}. Calendar event downloaded!`);
+        
+        // Trigger WhatsApp Notification
+        const message = `Hello ${booking.doctor.name},\n\n*New Appointment Booking*\nPatient: ${patient.name}\nDate: ${new Date(booking.date).toLocaleDateString("en-IN")}\nTime: ${booking.slot}\n\nPlease confirm this appointment.`;
+        const hospitalPhone = booking.doctor.phone || "919999999999";
+        const whatsappUrl = `https://wa.me/${hospitalPhone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, "_blank");
+
         setTimeout(() => setSuccessMsg(""), 6000);
       } else {
         console.error("Booking failed:", data.error);

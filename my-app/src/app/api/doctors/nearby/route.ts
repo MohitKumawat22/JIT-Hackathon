@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         slots: slots,
         distance: loc.distance,
         address: loc.placeAddress,
+        phone: "91" + Math.floor(Math.random() * 900000000 + 9000000000).toString(), // Simulated Official Hospital WhatsApp No
         available: true
       };
     });
