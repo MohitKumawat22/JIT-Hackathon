@@ -1,10 +1,10 @@
-import ChatbotWidget from "@/components/patient/ChatbotWidget";
+import ChatbotWidget from"@/components/patient/ChatbotWidget";
 
 export default function PatientLayout({ children }) {
-  return (
-    <>
-      {children}
-      <ChatbotWidget />
-    </>
-  );
+ return (
+ <>
+ {children}
+ <ChatbotWidget />
+ </>
+ );
 }

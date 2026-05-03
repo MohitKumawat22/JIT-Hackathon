@@ -50,17 +50,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Animated gradient background ─── */
+/* ─── Flat background ─── */
 .gradient-bg {
   background: var(--background);
 }
 
-/* ─── Premium Glass card ─── */
+/* ─── Flat card ─── */
 .glass {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: var(--surface);
+  border: 1px solid var(--border);
   box-shadow: var(--card-shadow);
   border-radius: 1.5rem;
 }

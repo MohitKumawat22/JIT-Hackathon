@@ -1,30 +1,29 @@
-import { Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
+import { Plus_Jakarta_Sans } from"next/font/google";
+import"./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-sans",
-  subsets: ["latin"],
+ variable:"--font-sans",
+ subsets: ["latin"],
 });
 
 export const metadata = {
-  title: "AmritCare AI — Smart Healthcare Platform",
-  description:
-    "AI-powered healthcare platform — find doctors, book appointments, and get home remedy recommendations.",
+ title:"AmritCare AI — Smart Healthcare Platform",
+ description:"AI-powered healthcare platform — find doctors, book appointments, and get home remedy recommendations.",
 };
 
-import MedicineAlarmService from "@/components/reminders/MedicineAlarmService";
+import MedicineAlarmService from"@/components/reminders/MedicineAlarmService";
 
 
 export default function RootLayout({ children }) {
-  return (
-    <html
-      lang="en"
-      className={`${plusJakarta.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col gradient-bg">
-        <MedicineAlarmService />
-        {children}
-      </body>
-    </html>
-  );
+ return (
+ <html
+ lang="en"
+ className={`${plusJakarta.variable} h-full antialiased`}
+ >
+ <body className="min-h-full flex flex-col gradient-bg">
+ <MedicineAlarmService />
+ {children}
+ </body>
+ </html>
+ );
 }
