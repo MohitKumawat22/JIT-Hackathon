@@ -2,7 +2,15 @@ import { NextResponse } from "next/server";
 import connectDB from "@/lib/db";
 import ChatHistory from "@/models/ChatHistory";
 
-const SYSTEM_PROMPT = `You are AmritCare AI — a warm, smart health companion built into the AmritCare app. Think of yourself as a caring friend who happens to know a lot about health.
+const getSystemPrompt = () => {
+  const now = new Date();
+  const currentDateTime = now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "full", timeStyle: "short" });
+  const isoDate = now.toISOString().split("T")[0];
+
+  return `You are AmritCare AI — a warm, smart health companion built into the AmritCare app. Think of yourself as a caring friend who happens to know a lot about health.
+
+CURRENT SYSTEM DATE & TIME: ${currentDateTime}
+(Use this to accurately determine "today", "tomorrow", etc.)
 
 PERSONALITY:
 - Friendly, warm, natural — like texting a knowledgeable friend
@@ -50,7 +58,8 @@ ACTION TAGS — Add at END of reply ONLY when needed:
 • Book appointment: [BOOK_APPOINTMENT:Specialty_Name]
 • Schedule call (2-step):
   - If no date/time given → ask: "Sure! When works for you? 😊" (no tag yet)
-  - Once date+time given → [SCHEDULE_CALL_AT:YYYY-MM-DDTHH:MM] (use 2026 as year)
+  - Once date+time given → [SCHEDULE_CALL_AT:YYYY-MM-DDTHH:MM] 
+    (Must be in the future! Use 24-hour time e.g., 5 PM = 17:00. Today is ${isoDate})
 • Navigate: [NAVIGATE:/path]
   - Dashboard/Appointments → /patient/dashboard
   - History → /patient/history  
@@ -58,6 +67,7 @@ ACTION TAGS — Add at END of reply ONLY when needed:
   - Find Hospital → /patient/locate
   - Reminders → /reminders
 • Calendar: [ADD_CALENDAR:Specialty:reason]`;
+};
 
 const REMINDER_EXTRACTION_PROMPT = `You are MediAI, a hospital assistant. The user wants to set a medicine reminder.
 
@@ -97,7 +107,7 @@ export async function POST(request) {
     }
 
     // Build messages array with system prompt
-    const chatMessages = [{ role: "system", content: isReminderPrompt ? REMINDER_EXTRACTION_PROMPT : SYSTEM_PROMPT }];
+    const chatMessages = [{ role: "system", content: isReminderPrompt ? REMINDER_EXTRACTION_PROMPT : getSystemPrompt() }];
 
     // Add patient context if available
     if (patientInfo) {
