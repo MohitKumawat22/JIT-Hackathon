@@ -78,26 +78,40 @@ export async function GET(request) {
       });
     }
 
-    const facilities = merged.map((loc) => {
-      const fLat = loc.latitude  ? parseFloat(loc.latitude)  : userLat;
-      const fLng = loc.longitude ? parseFloat(loc.longitude) : userLng;
-      const isHospital = (loc.type || loc.keyword || "").toLowerCase().includes("hospital");
+    // Mappls nearby API gives distance (metres) but not lat/lng.
+    // Approximate coordinates by distributing facilities in a golden-angle spiral
+    // so each appears at the correct distance ring on the map.
+    const PHI = Math.PI * (3 - Math.sqrt(5)); // golden angle
+
+    const facilities = merged.map((loc, index) => {
+      const distMetres = loc.distance || (index + 1) * 400;
+      const distKm     = +(distMetres / 1000).toFixed(2);
+
+      // Approximate lat/lng — spiral offset from user location
+      const angle      = index * PHI;
+      const R          = 6371000; // Earth radius in metres
+      const dLat       = (distMetres * Math.cos(angle)) / R * (180 / Math.PI);
+      const dLng       = (distMetres * Math.sin(angle)) / R * (180 / Math.PI) / Math.cos(userLat * Math.PI / 180);
+      const fLat       = +(userLat + dLat).toFixed(6);
+      const fLng       = +(userLng + dLng).toFixed(6);
+
+      const isHospital = (loc.keywords?.[0] || loc.keyword || "").toLowerCase().includes("hlthsp") ||
+                         (loc.placeName || "").toLowerCase().includes("hospital");
 
       return {
-        id: loc.eLoc || loc.placeName,
-        name: loc.placeName,
-        address: loc.placeAddress || "",
-        lat: fLat,
-        lng: fLng,
-        rating: +(3.5 + Math.random() * 1.5).toFixed(1),
-        reviews: Math.floor(100 + Math.random() * 2000),
-        open: true,
-        type: isHospital ? "Hospital" : "Clinic",
+        id:        loc.eLoc || `loc-${index}`,
+        name:      loc.placeName,
+        address:   loc.placeAddress || "",
+        lat:       fLat,
+        lng:       fLng,
+        eLoc:      loc.eLoc,             // for Mappls map links
+        rating:    +(3.5 + Math.random() * 1.5).toFixed(1),
+        reviews:   Math.floor(100 + Math.random() * 2000),
+        open:      true,
+        type:      isHospital ? "Hospital" : "Clinic",
         emergency: isHospital,
-        placeId: loc.eLoc,
-        distance: loc.distance
-          ? +(loc.distance / 1000).toFixed(1)
-          : haversineDistance(userLat, userLng, fLat, fLng),
+        placeId:   loc.eLoc,
+        distance:  distKm,
       };
     });
 

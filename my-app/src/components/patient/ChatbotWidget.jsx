@@ -24,14 +24,15 @@ export default function ChatbotWidget() {
     setMounted(true);
   }, []);
 
-  const welcomeMsg = {
-    role: "bot",
-    text: `Hello${patient ? ` ${patient.firstName}` : ""}! 👋 I'm your AmritCare AI assistant.\n\n• Analyzing your symptoms\n• Suggesting home remedies\n• Recommending the right doctor\n\nNote: I don't prescribe medicines.\n📎 Upload past reports for better advice!`,
-  };
+  const welcomeText = `Hey ${patient?.firstName || "there"}! 👋 I'm AmritCare AI — your health companion.\n\nTell me how you're feeling, describe any symptoms, or ask me to book an appointment or set a reminder. I'm here to help! 💙`;
 
-  // Init messages when patient is loaded
+  // Set welcome message only once when patient loads for first time
+  const welcomeSet = useRef(false);
   useEffect(() => {
-    if (patient) setMessages([{ ...welcomeMsg, text: `Hello ${patient.firstName}! 👋 I'm your AmritCare AI assistant.\n\n• Analyzing your symptoms\n• Suggesting home remedies\n• Recommending the right doctor\n\nNote: I don't prescribe medicines.\n📎 Upload past reports for better advice!` }]);
+    if (patient && !welcomeSet.current) {
+      welcomeSet.current = true;
+      setMessages([{ role: "bot", text: `Hey ${patient.firstName}! 👋 I'm AmritCare AI — your health companion.\n\nTell me how you're feeling, describe any symptoms, or ask me to book an appointment. I'm here! 💙` }]);
+    }
   }, [patient?.id]);
 
   // Load history when opened

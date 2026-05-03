@@ -14,7 +14,6 @@ export const metadata = {
 
 import MedicineAlarmService from "@/components/reminders/MedicineAlarmService";
 
-import ChatButton from "@/components/ChatButton";
 
 export default function RootLayout({ children }) {
   return (
@@ -25,7 +24,6 @@ export default function RootLayout({ children }) {
       <body className="min-h-full flex flex-col gradient-bg">
         <MedicineAlarmService />
         {children}
-        <ChatButton />
       </body>
     </html>
   );

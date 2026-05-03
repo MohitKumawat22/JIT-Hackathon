@@ -149,8 +149,10 @@ export default function LocatePage() {
   const handleGetDirections = (facility, e) => {
     e.stopPropagation();
     saveBooking(facility);
+    // Use name+address search for accurate directions (coords are approximate from Mappls)
+    const query = encodeURIComponent(`${facility.name} ${facility.address}`);
     window.open(
-      `https://www.google.com/maps/dir/?api=1&destination=${facility.lat},${facility.lng}`,
+      `https://www.google.com/maps/search/?api=1&query=${query}`,
       "_blank"
     );
   };
@@ -217,7 +219,9 @@ export default function LocatePage() {
           {/* Real Google Map */}
           {loadState === "ready" && userLocation && (
             <iframe
-              src={`https://maps.google.com/maps?q=${selected ? selected.lat : userLocation.lat},${selected ? selected.lng : userLocation.lng}&z=${selected ? 16 : 13}&output=embed`}
+              src={`https://maps.google.com/maps?q=${selected
+                ? encodeURIComponent(selected.name + ' ' + selected.address)
+                : `${userLocation.lat},${userLocation.lng}`}&z=${selected ? 16 : 13}&output=embed`}
               width="100%"
               height="100%"
               style={{ border: 0, filter: "invert(90%) hue-rotate(180deg)" }}
@@ -232,8 +236,8 @@ export default function LocatePage() {
           <div className="absolute top-4 left-4 glass rounded-xl px-4 py-2.5 flex items-center gap-2 z-10">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             <span className="text-xs text-text-secondary font-medium">
-              {loadState === "ready"
-                ? dataSource === "google" ? "Live — Google Places API" : "Live — Your Location"
+            {loadState === "ready"
+                ? dataSource === "mappls" ? "📍 Live — Mappls" : dataSource === "google" ? "Live — Google Places" : "Live — Your Location"
                 : "Locating..."}
             </span>
           </div>
