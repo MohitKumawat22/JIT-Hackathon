@@ -90,23 +90,24 @@ export default function PatientDashboard() {
         const data = await res.json();
         setDataSource(data.source || "");
         if (data.doctors && data.doctors.length > 0) {
-          // Normalize Mappls results to match card fields
+          // Normalize Mappls results — real facility names, no fake Dr. names
           const normalized = data.doctors.map((d, i) => ({
             ...d,
-            id: d.id ?? i,
-            name: d.name || "Nearby Clinic",
-            specialty: d.specialty || "General Clinic",
-            rating: d.rating ?? +(3.5 + Math.random() * 1.5).toFixed(1),
+            id:         d.id ?? i,
+            name:       d.name || "Nearby Clinic",
+            specialty:  d.specialty || "General Clinic",
+            rating:     d.rating ?? +(3.5 + Math.random() * 1.5).toFixed(1),
             experience: d.experience || `${Math.floor(Math.random() * 15 + 2)} yrs`,
-            available: d.available !== false,
-            fee: d.fee || `₹${Math.floor(Math.random() * 8 + 3) * 100}`,
-            avatar: (d.name || "CL").substring(0, 2).toUpperCase(),
-            slots: d.slots?.length ? d.slots : ALL_SLOTS.sort(() => 0.5 - Math.random()).slice(0, 3),
+            available:  d.available !== false,
+            fee:        d.fee || `₹${Math.floor(Math.random() * 8 + 3) * 100}`,
+            avatar:     (d.name || "CL").substring(0, 2).toUpperCase(),
+            slots:      d.slots?.length ? d.slots : ALL_SLOTS.sort(() => 0.5 - Math.random()).slice(0, 3),
           }));
           setDoctorsList(normalized);
         }
       } catch (err) {
         console.error("Failed to fetch nearby doctors:", err);
+        setDataSource("error");
       } finally {
         setDoctorsLoading(false);
       }
@@ -125,6 +126,7 @@ export default function PatientDashboard() {
       fetchDoctors("28.6139", "77.2090");
     }
   }, []);
+
 
   useEffect(() => {
     if (!patient?.id) return;
@@ -275,7 +277,7 @@ export default function PatientDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className="mb-8">
           <ScheduleCall patientId={patient.id} />
         </div>
 
@@ -373,8 +375,17 @@ export default function PatientDashboard() {
                 </div>
               ))}
             </div>
-            {filteredDoctors.length === 0 && (
-              <div className="text-center py-16"><p className="text-gray-400 text-sm">No clinics found matching your search.</p></div>
+            {filteredDoctors.length === 0 && !doctorsLoading && (
+              <div className="text-center py-16">
+                {doctorsList.length === 0 ? (
+                  <div>
+                    <p className="text-gray-400 text-sm mb-2">📡 Could not fetch nearby clinics right now.</p>
+                    <button onClick={() => window.location.reload()} className="text-xs text-primary underline">Try again</button>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">No clinics found matching your search.</p>
+                )}
+              </div>
             )}
           </>
         )}
