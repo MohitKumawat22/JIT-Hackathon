@@ -61,7 +61,7 @@ export default function MedicineCard({ reminder, onMarkTaken, onDelete }: Medici
  {isRefillAlert && (
  <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md">
  <p className="text-sm text-red-700 font-medium">
- ⚠️ Refill soon — only {supplyDays} days left!
+  Refill soon — only {supplyDays} days left!
  </p>
  </div>
  )}

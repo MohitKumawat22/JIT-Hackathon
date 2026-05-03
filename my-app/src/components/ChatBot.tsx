@@ -93,11 +93,11 @@ export default function ChatBot({ isOpen, onClose }: { isOpen: boolean; onClose:
  const QuickChips = () => (
  <div className="flex flex-wrap gap-2 mt-4 px-4">
  {[
- { label:"📅 Book Appointment", text:"Book an appointment" },
+ { label:" Book Appointment", text:"Book an appointment" },
  { label:"👤 Add Patient", text:"Add a new patient" },
  { label:"💊 Set Reminder", text:"Set a medicine reminder" },
  { label:"📋 Today's Schedule", text:"Show today's appointments" },
- { label:"⚠️ Low Stock Alert", text:"Which medicines are low on stock?" },
+ { label:" Low Stock Alert", text:"Which medicines are low on stock?" },
  ].map((chip) => (
  <button
  key={chip.label}
@@ -133,7 +133,7 @@ export default function ChatBot({ isOpen, onClose }: { isOpen: boolean; onClose:
  :"Searching for specialists...";
  break;
  case"get_appointments":
- badge ="📅 Your Schedule";
+ badge =" Your Schedule";
  details = `You have ${msg.result?.length || 0} upcoming appointments.`;
  break;
  }

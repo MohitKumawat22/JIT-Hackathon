@@ -266,7 +266,7 @@ export default function PatientHistoryPage() {
  </div>
  <div className="flex items-center justify-between glass rounded-xl px-4 py-3">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center"><span className="text-sm">📞</span></div>
+ <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center"><span className="text-sm"></span></div>
  <span className="text-sm text-text-secondary">AI Calls</span>
  </div>
  <span className="text-sm font-bold text-emerald-400">{totalCalls}</span>
@@ -375,7 +375,7 @@ export default function PatientHistoryPage() {
  <div className="flex items-start justify-between gap-3 mb-2">
  <div className="flex-1 min-w-0">
  <div className="flex items-center gap-2 flex-wrap mb-1">
- <span className="text-sm">{isCall ?"📞" : isTriage ?"🤖" :"🏥"}</span>
+ <span className="text-sm">{isCall ?"" : isTriage ?"🤖" :"🏥"}</span>
  <h3 className="text-sm font-semibold truncate">{entry.title}</h3>
  </div>
  <p className="text-xs text-text-muted">
@@ -405,14 +405,14 @@ export default function PatientHistoryPage() {
  {/* Call severity badge (only on completed calls) */}
  {isCall && entry.callStatus ==="completed" && sev && (
  <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${sev.bg} ${sev.color}`}>
- {entry.severity ==="critical" || entry.severity ==="high" ?"⚠️" :""}{sev.label}
+ {entry.severity ==="critical" || entry.severity ==="high" ?"" :""}{sev.label}
  </span>
  )}
  </div>
 
  {/* Call notes */}
  {isCall && entry.notes && (
- <p className="text-xs text-text-muted mb-1">💬 {entry.notes}</p>
+ <p className="text-xs text-text-muted mb-1"> {entry.notes}</p>
  )}
 
  {isTriage && entry.symptoms.length > 0 && (

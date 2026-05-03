@@ -70,19 +70,19 @@ function ScheduleCallModal({ reason, onClose, onConfirm }) {
  <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-[100] p-4" onClick={onClose}>
  <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-7 animate-slide-up" onClick={(e) => e.stopPropagation()}>
  <div className="flex items-center justify-between mb-6">
- <h3 className="text-xl font-bold text-gray-900">📞 Schedule AI Call</h3>
+ <h3 className="text-xl font-bold text-gray-900"> Schedule AI Call</h3>
  <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">✕</button>
  </div>
  <p className="text-sm text-gray-500 mb-5">AmritCare AI will call you at the scheduled time for a personalized health checkup.</p>
  <div className="mb-4">
- <label className="block text-sm font-semibold text-gray-700 mb-2">📅 When should we call?</label>
+ <label className="block text-sm font-semibold text-gray-700 mb-2"> When should we call?</label>
  <input type="datetime-local" value={datetime} min={minDt} onChange={(e) => setDatetime(e.target.value)} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 bg-gray-50" />
  </div>
  <div className="mb-6">
  <label className="block text-sm font-semibold text-gray-700 mb-2">📝 Notes</label>
  <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} placeholder="e.g. headache follow-up..." className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400 bg-gray-50 resize-none" />
  </div>
- <button disabled={!datetime} onClick={() => onConfirm({ scheduledAt: new Date(datetime).toISOString(), notes })} className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg">📞 Schedule Call</button>
+ <button disabled={!datetime} onClick={() => onConfirm({ scheduledAt: new Date(datetime).toISOString(), notes })} className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-bold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"> Schedule Call</button>
  </div>
  </div>
  );
@@ -95,10 +95,10 @@ function ActionButtons({ actions, onBook, onCall }) {
  <div className="flex flex-wrap gap-2 mt-2 ml-1 animate-slide-up">
  {actions.map((action, i) => {
  if (action.type ==="book_appointment") return (
- <button key={i} onClick={() => onBook(action.specialty)} className="flex items-center gap-1.5 bg-[#10B981] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-[#059669] transition-all">📅 Book {action.specialty}</button>
+ <button key={i} onClick={() => onBook(action.specialty)} className="flex items-center gap-1.5 bg-[#10B981] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-[#059669] transition-all"> Book {action.specialty}</button>
  );
  if (action.type ==="schedule_call") return (
- <button key={i} onClick={() => onCall(action.reason)} className="flex items-center gap-1.5 bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-emerald-700 transition-all">📞 Schedule Call</button>
+ <button key={i} onClick={() => onCall(action.reason)} className="flex items-center gap-1.5 bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md hover:bg-emerald-700 transition-all"> Schedule Call</button>
  );
  return null;
  })}
@@ -284,7 +284,7 @@ export default function TriageChat() {
  }
  setMessages((prev) => [...prev, {
  role:"assistant",
- text: `✅ Call scheduled for ${new Date(scheduledAt).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", hour12: true })}.\n\nAmritCare AI will call you at the scheduled time! 📞`,
+ text: `✅ Call scheduled for ${new Date(scheduledAt).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit", hour12: true })}.\n\nAmritCare AI will call you at the scheduled time! `,
  time: new Date(),
  }]);
  showToast("✅ AI Health Call scheduled!");
@@ -298,7 +298,7 @@ export default function TriageChat() {
  /* ── Voice status label ── */
  const voiceStatusLabel = voice.isActive
  ? voice.isListening
- ?"🎙️ Listening..."
+ ?"🎙 Listening..."
  : voice.isSpeaking
  ?"🔊 Speaking..."
  :"⏳ Processing..."
@@ -411,7 +411,7 @@ export default function TriageChat() {
  >
  {voice.isActive ? (
  <div className="relative">
- <span className="text-lg">🎙️</span>
+ <span className="text-lg">🎙</span>
  {/* Pulsing ring */}
  <span className="absolute -inset-1 rounded-xl border-2 border-red-400 animate-ping opacity-50" />
  </div>
@@ -440,7 +440,7 @@ export default function TriageChat() {
  </div>
  {voice.isActive && (
  <p className="text-xs text-center text-text-muted mt-2 animate-fade-in">
- 🎙️ Voice mode active — speak naturally for a 1-on-1 conversation with your AI health assistant
+ 🎙 Voice mode active — speak naturally for a 1-on-1 conversation with your AI health assistant
  </p>
  )}
  </div>

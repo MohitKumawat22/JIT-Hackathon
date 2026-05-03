@@ -12,7 +12,7 @@ export default function RefillAlert({ reminders }) {
  const daysLeft = daysOfSupplyLeft(m);
  return (
  <div key={m._id} className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-center gap-4 animate-pulse-slow">
- <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-2xl shadow-sm">⚠️</div>
+ <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center text-2xl shadow-sm"></div>
  <div className="flex-1">
  <h4 className="text-sm font-black text-red-900 uppercase tracking-tight">Refill Alert: {m.medicineName}</h4>
  <p className="text-xs font-bold text-red-700/80">

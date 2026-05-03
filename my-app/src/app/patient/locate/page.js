@@ -207,7 +207,7 @@ export default function LocatePage() {
  {loadState ==="error" && (
  <div className="absolute inset-0 flex items-center justify-center z-20">
  <div className="glass rounded-xl px-6 py-4 text-center max-w-xs">
- <p className="text-red-400 text-sm mb-2">⚠️ {errorMsg}</p>
+ <p className="text-red-400 text-sm mb-2"> {errorMsg}</p>
  <button onClick={() => window.location.reload()} className="btn-primary text-xs px-4 py-2">
  Retry
  </button>

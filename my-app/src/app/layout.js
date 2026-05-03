@@ -1,9 +1,9 @@
-import { Plus_Jakarta_Sans } from"next/font/google";
-import"./globals.css";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
- variable:"--font-sans",
- subsets: ["latin"],
+const interFont = Inter({
+  variable: "--font-sans",
+  subsets: ["latin"],
 });
 
 export const metadata = {
@@ -13,14 +13,13 @@ export const metadata = {
 
 import MedicineAlarmService from"@/components/reminders/MedicineAlarmService";
 
-
 export default function RootLayout({ children }) {
  return (
  <html
  lang="en"
- className={`${plusJakarta.variable} h-full antialiased`}
+ className={`${interFont.variable} h-full antialiased text-gray-800`}
  >
- <body className="min-h-full flex flex-col gradient-bg">
+ <body className="min-h-full flex flex-col gradient-bg text-[15px] leading-relaxed">
  <MedicineAlarmService />
  {children}
  </body>

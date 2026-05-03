@@ -257,7 +257,7 @@ export default function PatientDashboard() {
  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
  <div className="flex items-center gap-3">
- <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">📅</div>
+ <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center"></div>
  <div><p className="text-2xl font-bold text-gray-800">{bookings.length}</p><p className="text-xs text-gray-500">Upcoming Appointments</p></div>
  </div>
  </div>
@@ -293,7 +293,7 @@ export default function PatientDashboard() {
  <h3 className="font-semibold text-gray-800 text-sm">{b.doctorName}</h3>
  <p className="text-xs text-gray-500 mb-3">{b.specialty}</p>
  <div className="flex items-center gap-3 text-xs text-gray-500">
- <span>📅 {new Date(b.date).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}</span>
+ <span> {new Date(b.date).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" })}</span>
  <span>🕐 {b.slot}</span>
  </div>
  </div>

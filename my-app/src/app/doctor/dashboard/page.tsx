@@ -84,7 +84,7 @@ export default function DoctorDashboard() {
  <div className="flex justify-center py-20 animate-pulse text-gray-400">Loading appointments...</div>
  ) : appointments.length === 0 ? (
  <div className="bg-white rounded-3xl p-16 text-center border-2 border-dashed border-gray-200">
- <div className="text-5xl mb-4">📅</div>
+ <div className="text-5xl mb-4"></div>
  <h2 className="text-xl font-bold text-gray-900 mb-2">No Appointments</h2>
  <p className="text-gray-500">You don't have any appointments scheduled for today.</p>
  </div>

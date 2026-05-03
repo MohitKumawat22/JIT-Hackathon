@@ -185,7 +185,7 @@ export default function MedicineReminders({ patientId }) {
  <div className="space-y-3">
  {reminders.length === 0 && !loading && !showForm && (
  <div className="text-center py-8">
- <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center text-3xl mx-auto mb-3 opacity-50">⏰</div>
+ <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center text-3xl mx-auto mb-3 opacity-50"></div>
  <p className="text-sm font-medium text-gray-400">No reminders set</p>
  </div>
  )}

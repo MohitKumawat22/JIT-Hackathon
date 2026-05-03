@@ -119,10 +119,10 @@ export default function ChatbotWidget() {
  if (callRes.ok) {
  replyText += `\n\n✅ Done! Your call has been scheduled for ${new Date(action.datetime).toLocaleString("en-IN", { dateStyle:"medium", timeStyle:"short" })}.`;
  } else {
- replyText += `\n\n⚠️ Couldn't schedule the call: ${callData.error ||"Unknown error"}.`;
+ replyText += `\n\n Couldn't schedule the call: ${callData.error ||"Unknown error"}.`;
  }
  } catch {
- replyText +="\n\n⚠️ There was an error scheduling your call. Please try manually.";
+ replyText +="\n\n There was an error scheduling your call. Please try manually.";
  }
  }
 
@@ -132,7 +132,7 @@ export default function ChatbotWidget() {
  setIsOpen(false);
  router.push(action.path);
  }, 1200); // slight delay so user sees the reply first
- replyText += `\n\n➡️ Redirecting you there now...`;
+ replyText += `\n\n➡ Redirecting you there now...`;
  }
  }
  }
@@ -206,7 +206,7 @@ export default function ChatbotWidget() {
  </div>
  </div>
  <div className="flex items-center gap-2">
- <button onClick={handleClearChat} title="Clear chat" className="text-white/60 hover:text-white transition-colors text-xs px-2 py-1.5 rounded-lg hover:bg-white">🗑️</button>
+ <button onClick={handleClearChat} title="Clear chat" className="text-white/60 hover:text-white transition-colors text-xs px-2 py-1.5 rounded-lg hover:bg-white"></button>
  <button onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white transition-colors p-1 rounded-lg hover:bg-white">
  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
  </button>

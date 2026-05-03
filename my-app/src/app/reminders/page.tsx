@@ -170,7 +170,7 @@ export default function RemindersPage() {
  {med.isActive ?"🔔" :"🔕"}
  </button>
  <button onClick={() => deleteReminder(med._id)} className="w-10 h-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors">
- 🗑️
+ 
  </button>
  </div>
  </div>
@@ -178,7 +178,7 @@ export default function RemindersPage() {
  <div className="flex flex-wrap gap-2 mb-4">
  {med.times.map((t, i) => (
  <span key={i} className="px-3 py-1.5 bg-gray-50 rounded-lg text-xs font-bold text-gray-600 border border-gray-100">
- ⏰ {t}
+  {t}
  </span>
  ))}
  </div>
@@ -193,7 +193,7 @@ export default function RemindersPage() {
  </div>
  {med.remainingQuantity < 5 && (
  <span className="text-[10px] font-bold text-red-500 animate-pulse flex items-center gap-1">
- ⚠️ Low Stock!
+  Low Stock!
  </span>
  )}
  </div>

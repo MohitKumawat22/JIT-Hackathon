@@ -51,7 +51,7 @@ export default function AlarmPopup({
  🔔
  </div>
  <h2 className="text-2xl font-bold text-gray-900 mb-2">
- ⏰ Medicine Time!
+  Medicine Time!
  </h2>
  <div className="bg-emerald-50 rounded-xl p-4 my-6">
  <h3 className="text-3xl font-black text-emerald-900 mb-1">

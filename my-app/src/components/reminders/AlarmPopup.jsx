@@ -15,7 +15,7 @@ export default function AlarmPopup({ reminder, onTake, onSkip, onSnooze }) {
  <audio ref={audioRef} src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" loop />
  <div className="max-w-md w-full bg-white rounded-[3rem] p-10 shadow-2xl text-center animate-in zoom-in duration-500 slide-in-from-bottom-10">
  <div className="w-24 h-24 bg-red-50 rounded-full flex items-center justify-center text-5xl mx-auto mb-8 animate-bounce-slow shadow-inner">
- ⏰
+ 
  </div>
  <h2 className="text-3xl font-black text-gray-900 mb-2 uppercase tracking-tight">Medicine Time</h2>
  <p className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-8">Scheduled for now</p>
