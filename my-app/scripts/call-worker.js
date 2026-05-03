@@ -284,8 +284,9 @@ async function processDueCalls() {
 
       // 5. Fire Twilio outbound call
       const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-      const webhookUrl = `${NGROK_URL}/api/twilio/voice`;
-      const statusCallbackUrl = `${NGROK_URL}/api/twilio/voice`;
+      // Embed callLogId in URL to avoid race condition (callSid saved after call fires)
+      const webhookUrl = `${NGROK_URL}/api/twilio/voice?callLogId=${call._id}`;
+      const statusCallbackUrl = `${NGROK_URL}/api/twilio/voice?callLogId=${call._id}`;
 
       const twilioCall = await twilioClient.calls.create({
         to: phoneNumber,
@@ -296,8 +297,8 @@ async function processDueCalls() {
         statusCallbackEvent: ["completed", "failed", "no-answer", "busy"],
         // ── Voicemail detection ──────────────────────────────────
         machineDetection: "DetectMessageEnd",
-        asyncAmd: "true",
-        asyncAmdStatusCallback: webhookUrl,
+        asyncAmd: true,
+        asyncAmdStatusCallback: statusCallbackUrl,
         asyncAmdStatusCallbackMethod: "POST",
       });
 

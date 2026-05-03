@@ -147,11 +147,9 @@ function twiml(sayText, gatherActionUrl, timeout = 8) {
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Kajal">${escaped}</Say>
-  <Gather input="speech" action="${gatherActionUrl}" timeout="${timeout}" speechTimeout="auto" language="hi-IN">
-    <Say voice="Polly.Kajal">Haan, boliye.</Say>
-  </Gather>
-  <Say voice="Polly.Kajal">Main aapki awaaz nahi sun saka. Apna khayal rakhein! Alvida.</Say>
+  <Say voice="Polly.Aditi">${escaped}</Say>
+  <Gather input="speech" action="${gatherActionUrl}" timeout="15" speechTimeout="3" language="en-IN"/>
+  <Say voice="Polly.Aditi">Main aapki awaaz nahi sun saka. Apna khayal rakhein! Alvida.</Say>
 </Response>`,
     { headers: { "Content-Type": "text/xml" } }
   );
@@ -167,7 +165,7 @@ function twimlEnd(sayText) {
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="Polly.Kajal">${escaped}</Say>
+  <Say voice="Polly.Aditi">${escaped}</Say>
   <Hangup/>
 </Response>`,
     { headers: { "Content-Type": "text/xml" } }
@@ -183,12 +181,27 @@ export async function POST(request) {
     const params = Object.fromEntries(new URLSearchParams(body));
 
     const { CallSid, SpeechResult, CallStatus, AnsweredBy } = params;
-    console.log(`[Twilio] CallSid=${CallSid} Status=${CallStatus || "voice"} AnsweredBy=${AnsweredBy || "human"} Speech=${SpeechResult ? SpeechResult.substring(0, 50) : "none"}`);
+    console.log(`[Twilio] CallSid=${CallSid} Status=${CallStatus || "voice"} AnsweredBy=${AnsweredBy || "?"}  Speech=${SpeechResult ? SpeechResult.substring(0, 60) : "none"}`);
 
     const ngrokUrl = process.env.NGROK_URL || "";
-    const webhookUrl = `${ngrokUrl}/api/twilio/voice`;
 
-    // ── 0. Voicemail detection — hang up immediately ────────────────
+    // Read callLogId from URL query param (eliminates race condition)
+    const { searchParams } = new URL(request.url, "https://placeholder.local");
+    const callLogId = searchParams.get("callLogId");
+    const webhookUrl = `${ngrokUrl}/api/twilio/voice${callLogId ? `?callLogId=${callLogId}` : ""}`;
+
+    // ── 0a. AMD human confirmation callback — ignore, call is already in progress
+    // Twilio fires asyncAmdStatusCallback with AnsweredBy=human + CallStatus=in-progress.
+    // This is purely informational — return empty TwiML so we don't replay the greeting.
+    if (AnsweredBy === "human" && CallStatus === "in-progress") {
+      console.log(`[Twilio] AMD human-confirmed callback — ignoring (call already live).`);
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Response/>`,
+        { status: 200, headers: { "Content-Type": "text/xml" } }
+      );
+    }
+
+    // ── 0b. Voicemail detection — hang up immediately ────────────────
     if (AnsweredBy === "machine_end_beep" || AnsweredBy === "machine_end_silence" || AnsweredBy === "machine_start") {
       console.log(`[Twilio] Voicemail detected (${AnsweredBy}) — hanging up and scheduling retry.`);
 
@@ -264,7 +277,7 @@ Keep it human, warm, and simple — not a medical report.
 
 Few-shot examples of the exact style to use:
 Example 1: "Ravi ne aaj sir dard aur thakaan ki baat ki — kaafi dinon se feel ho raha hai unhe. Call ke dauran mood thoda low tha lekin baat karte waqt better laga. Doctor se milna suggest kiya gaya hai agar symptoms kal bhi rahein."
-Example 2: "Priya bilkul theek hain — neend aur khana dono sahi chal raha hai. Koi specific symptoms nahi the is call mein, overall mood positive tha. Next checkup regularly schedule karna recommend kiya."`,
+Example 2: "Priya bilkul theek hain — neend aur khana दोनों sahi chal raha hai. Koi specific symptoms nahi the इस call mein, overall mood positive tha. Next checkup regularly schedule karna recommend kiya."`,
                 },
                 { role: "user", content: transcriptText },
               ],
@@ -323,10 +336,14 @@ Keep each item short and conversational. followUpTopics should sound like a cari
       );
     }
 
-    // ── 2. Find the active CallLog by Sid ─────────────────────────
-    const callLog = await CallLog.findOne({ callSid: CallSid });
+    // ── 2. Find CallLog — prefer callLogId URL param, fall back to callSid ─
+    const callLog = callLogId
+      ? await CallLog.findById(callLogId)
+      : await CallLog.findOne({ callSid: CallSid });
+
     if (!callLog) {
-      return twimlEnd("Hello, I'm AmritCare AI. I couldn't find your appointment details. Please contact support. Goodbye!");
+      console.error(`[Twilio] CallLog not found (callLogId=${callLogId}, callSid=${CallSid})`);
+      return twimlEnd("Namaste! AmritCare se call aa raha tha. Abhi system busy hai, hum baad mein try karenge. Dhanyawad!");
     }
 
     // ── 3. First turn — no SpeechResult yet ──────────────────────
