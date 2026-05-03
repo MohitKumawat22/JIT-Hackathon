@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export default function ChatbotWidget() {
   const [patient, setPatient] = useState(null);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -17,12 +18,13 @@ export default function ChatbotWidget() {
   const endRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Read patient from sessionStorage (works on any patient page)
+  // Read patient from sessionStorage (re-run on route change so it picks up after login)
   useEffect(() => {
     const stored = JSON.parse(sessionStorage.getItem("medconnect_patient") || "null");
     if (stored?.id) setPatient(stored);
+    else setPatient(null);
     setMounted(true);
-  }, []);
+  }, [pathname]);
 
   const welcomeText = `Hey ${patient?.firstName || "there"}! 👋 I'm AmritCare AI — your health companion.\n\nTell me how you're feeling, describe any symptoms, or ask me to book an appointment or set a reminder. I'm here to help! 💙`;
 
@@ -183,8 +185,9 @@ export default function ChatbotWidget() {
     }
   };
 
-  // Only render after hydration and when a patient is logged in
-  if (!mounted || !patient) return null;
+  // Only render after hydration, and hide on auth pages
+  const isAuthPage = pathname?.includes("/login") || pathname?.includes("/register");
+  if (!mounted || isAuthPage) return null;
 
   return (
     <>
