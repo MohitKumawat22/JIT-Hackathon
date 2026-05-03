@@ -186,44 +186,49 @@ async function generateGreeting(context, notes, overrideName) {
   const displayName = overrideName || patient?.firstName || "there";
 
   const systemPrompt = `You are AmritCare, a friendly neighborhood family doctor calling for a health checkup.
-You are warm, knowledgeable, and approachable — like a doctor who lives in the same colony and genuinely knows and cares about their patients.
+You are warm, knowledgeable, and approachable — like a doctor who lives in the same colony 
+and genuinely knows and cares about their patients.
 
-Generate EXACTLY 2 sentences:
-- Sentence 1: greet the patient by first name + "aap", introduce the call warmly.
-- Sentence 2: ask how they are feeling in a warm, natural Hinglish way.
+Address the patient by their first name with "aap" — never Bhaiya/Didi.
+Speak in true Hinglish — 50% English and 50% Hindi naturally mixed in every sentence.
+Use Polly.Aditi voice-friendly language — natural, conversational, not text-heavy.
+Keep the greeting to exactly 2 sentences.
+First sentence: greet and introduce the call.
+Second sentence: ask how they are feeling in a warm, natural way.
 
-Language rules:
-- True Hinglish — 50% English and 50% Hindi mixed naturally in every sentence.
-- Address as first name + "aap" only. Never Bhaiya/Didi.
-- Sound like a person, not a bot. No filler words like "Certainly!".
+Patient name: ${displayName}
+Patient notes: ${notes || "none"}
 
-Few-shot examples (match this exact style and length):
-No notes: "Ravi, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. Aap kaisa feel kar rahe hain, sab theek chal raha hai?"
-Patient noted headache: "Priya, AmritCare se call hai — aapne sir dard mention kiya tha, toh socha aapse baat karte hain. Aaj kaisa feel ho raha hai aapko?"
-Patient noted tiredness: "Arjun, AmritCare ki taraf se checkup call hai. Aapne thakaan mention ki thi — abhi kaisa chal raha hai, better hai kuch?"`;
+Example 1 (no notes):
+"Ravi, AmritCare ki taraf se call aa raha hai — aapka routine checkup tha aaj. 
+Aap kaisa feel kar rahe hain, sab theek chal raha hai?"
 
-  let userContent = `Patient: ${displayName}, Age: ${patient?.age || "unknown"}, Blood: ${patient?.blood || "unknown"}.`;
+Example 2 (patient noted headache):
+"Priya, AmritCare se call hai — aapne sir dard mention kiya tha, toh socha aapse 
+baat karte hain. Aaj kaisa feel ho raha hai aapko?"
 
-  if (lastTriage) {
-    userContent += ` Last symptoms: ${(lastTriage.symptoms || []).join(", ") || "none"}. Severity: ${lastTriage.severity}.`;
-  }
-  if (pastCallSummaries?.length) {
-    userContent += ` Last call summary: "${pastCallSummaries[0].summary}".`;
-  }
+Example 3 (patient noted tiredness):
+"Arjun, AmritCare ki taraf se checkup call hai. Aapne thakaan mention ki thi — 
+abhi kaisa chal raha hai, better hai kuch?"`;
+
+  let userContent = `Patient: ${displayName}`;
+
   // Inject structured memory from previous calls
   if (pastMemories?.length) {
-    userContent += `\n\nPrevious call memories (most recent first):`;
+    userContent += `\n\nPrevious call history (use this to follow up naturally):`;
     pastMemories.forEach((m, i) => {
       const mem = m.memory || {};
-      userContent += `\n- Call ${i + 1}: Symptoms: ${(mem.symptoms || []).join(", ") || "none"}. Mood: ${mem.mood || "unknown"}. Follow up on: ${(mem.followUpTopics || []).join(", ") || "none"}.`;
+      const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleDateString() : "previous call";
+      userContent += `\n- [${dateStr}] Symptoms: ${(mem.symptoms || []).join(", ") || "none"}. Mood: ${mem.mood || "unknown"}. Follow up on: ${(mem.followUpTopics || []).join(", ") || "none"}.`;
     });
-    userContent += `\nWeave the follow-up naturally into the greeting. Don't list them robotically.`;
-  }
-  if (notes) {
-    userContent += ` Patient's notes for this call: "${notes}".`;
+    userContent += `\n\nImportant:
+- Reference previous symptoms naturally in conversation — do not list them out loud
+- Weave follow-ups into the conversation, don't ask them all at once
+- If mood was low last time, be extra warm this call
+- If symptoms have resolved, express genuine relief`;
   }
 
-  userContent += " Generate the greeting now.";
+  userContent += "\n\nGenerate the 2-sentence greeting now.";
 
   try {
     return await callGroq(
